@@ -1,0 +1,177 @@
+import { BudgetInputSchema, type BudgetInput } from '@pfm/contracts';
+import { budgetThresholds, daysInMonth, monthKey } from '@pfm/domain';
+import { requireActiveCategory } from './categories';
+import type { Database, Queries } from './migrate';
+
+export interface BudgetRow {
+  id: string;
+  category_id: string | null;
+  amount: number;
+  warn_percent: number;
+  start_month: string;
+  end_month: string | null;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+  category_name: string | null;
+  category_archived: number | null;
+  spent: number;
+  in_period: number;
+}
+
+export async function readBudgetMonth(
+  db: Queries,
+  month: string,
+  budgetId?: string,
+) {
+  monthKey(`${month}-01`);
+  const [year, number] = month.split('-').map(Number);
+  const rows = await db.getAllAsync<BudgetRow>(
+    `SELECT b.*,c.name category_name,c.is_archived category_archived,
+     CASE WHEN b.start_month<=? AND (b.end_month IS NULL OR b.end_month>=?) THEN 1 ELSE 0 END in_period,
+     COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.kind='expense' AND t.occurred_on>=? AND t.occurred_on<=?
+       AND (b.category_id IS NULL OR t.category_id=b.category_id OR t.category_id IN (SELECT id FROM categories WHERE parent_id=b.category_id))),0) spent
+     FROM budgets b LEFT JOIN categories c ON c.id=b.category_id ${budgetId === undefined ? '' : 'WHERE b.id=?'} ORDER BY b.is_active DESC,b.created_at,b.id`,
+    month,
+    month,
+    `${month}-01`,
+    `${month}-${String(daysInMonth(year, number)).padStart(2, '0')}`,
+    ...(budgetId === undefined ? [] : [budgetId]),
+  );
+  if (rows.some((row) => !Number.isSafeInteger(row.spent)))
+    throw new Error('BUDGET_TOTAL_UNSAFE');
+  return rows;
+}
+
+export async function createBudget(
+  db: Database,
+  id: string,
+  input: BudgetInput,
+  timestamp: string,
+) {
+  const value = BudgetInputSchema.parse(input);
+  await db.transaction(async (transaction) => {
+    if (value.categoryId)
+      await requireActiveCategory(transaction, value.categoryId, 'expense');
+    await transaction.runAsync(
+      'INSERT INTO budgets (id,category_id,amount,warn_percent,start_month,end_month,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',
+      id,
+      value.categoryId,
+      value.amount,
+      value.warnPercent,
+      value.startMonth,
+      value.endMonth,
+      timestamp,
+      timestamp,
+    );
+  });
+}
+
+export async function updateBudget(
+  db: Database,
+  id: string,
+  input: BudgetInput,
+  timestamp: string,
+) {
+  const value = BudgetInputSchema.parse(input);
+  await db.transaction(async (transaction) => {
+    const old = await transaction.getFirstAsync<{ category_id: string | null }>(
+      'SELECT category_id FROM budgets WHERE id=?',
+      id,
+    );
+    if (!old) throw new Error('BUDGET_NOT_FOUND');
+    if (value.categoryId && value.categoryId !== old.category_id)
+      await requireActiveCategory(transaction, value.categoryId, 'expense');
+    await transaction.runAsync(
+      'UPDATE budgets SET category_id=?,amount=?,warn_percent=?,start_month=?,end_month=?,updated_at=? WHERE id=?',
+      value.categoryId,
+      value.amount,
+      value.warnPercent,
+      value.startMonth,
+      value.endMonth,
+      timestamp,
+      id,
+    );
+  });
+}
+
+export async function setBudgetActive(
+  db: Database,
+  id: string,
+  active: boolean,
+  timestamp: string,
+) {
+  await db.transaction(async (transaction) => {
+    if (
+      !(await transaction.getFirstAsync(
+        'SELECT id FROM budgets WHERE id=?',
+        id,
+      ))
+    )
+      throw new Error('BUDGET_NOT_FOUND');
+    await transaction.runAsync(
+      'UPDATE budgets SET is_active=?,updated_at=? WHERE id=?',
+      active ? 1 : 0,
+      timestamp,
+      id,
+    );
+  });
+}
+
+export async function claimBudgetAlert(
+  db: Database,
+  id: string,
+  month: string,
+  threshold: number,
+  timestamp: string,
+) {
+  let claimed = false;
+  await db.transaction(async (transaction) => {
+    const budget = (await readBudgetMonth(transaction, month, id)).find(
+      (row) => row.id === id,
+    );
+    if (
+      !budget ||
+      !budget.is_active ||
+      !budget.in_period ||
+      !budgetThresholds(
+        budget.spent,
+        budget.amount,
+        budget.warn_percent,
+      ).includes(threshold)
+    )
+      return;
+    if (
+      await transaction.getFirstAsync(
+        'SELECT 1 FROM budget_alerts_sent WHERE budget_id=? AND month=? AND threshold_percent=?',
+        id,
+        month,
+        threshold,
+      )
+    )
+      return;
+    await transaction.runAsync(
+      'INSERT INTO budget_alerts_sent (budget_id,month,threshold_percent,sent_at) VALUES (?,?,?,?)',
+      id,
+      month,
+      threshold,
+      timestamp,
+    );
+    claimed = true;
+  });
+  return claimed;
+}
+
+export function releaseBudgetAlert(
+  db: Queries,
+  id: string,
+  month: string,
+  threshold: number,
+) {
+  return db.runAsync(
+    'DELETE FROM budget_alerts_sent WHERE budget_id=? AND month=? AND threshold_percent=?',
+    id,
+    month,
+    threshold,
+  );
+}

@@ -1,0 +1,29 @@
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+credentials.json
+
+# Generated dependencies, builds, and local tooling
+node_modules/
+.npm-cache/
+.expo/
+dist/
+coverage/
+.vitest/
+*.tsbuildinfo
+expo-env.d.ts
+.metro-health-check*
+.pnpm-store/
+*.log
+
+# Local planning and skill artifacts
+plan.md
+.taste-skill/
+docs/
+spikes/
