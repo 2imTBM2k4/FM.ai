@@ -31,7 +31,7 @@ import {
   styles,
 } from '@/components/screen';
 import { Pill } from '@/components/ui/pill';
-import { useFinancePalette } from '@/constants/theme';
+import { DesignSpacing, useFinancePalette } from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import type { Database } from '@/data/migrate';
 import {
@@ -310,7 +310,10 @@ export function BudgetManager({
           data={rows}
           keyExtractor={(row) => row.id}
           renderItem={renderItem}
-          contentContainerStyle={{ gap: 14, paddingBottom: 24 }}
+          contentContainerStyle={{
+            gap: 14,
+            paddingBottom: DesignSpacing.bottomTabClearance,
+          }}
           ListHeaderComponent={<NotificationControls />}
           ListEmptyComponent={
             <EmptyStateCard icon="chart-arc" message={vi.budgetEmpty} />

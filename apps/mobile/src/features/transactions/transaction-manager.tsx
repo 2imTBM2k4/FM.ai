@@ -762,7 +762,10 @@ export function TransactionManager({
           data={filteredRows}
           keyExtractor={(row) => row.id}
           renderItem={renderItem}
-          contentContainerStyle={{ gap: 12, paddingBottom: 24 }}
+          contentContainerStyle={{
+            gap: 12,
+            paddingBottom: DesignSpacing.bottomTabClearance,
+          }}
           ListEmptyComponent={
             <EmptyStateCard
               icon="swap-horizontal"

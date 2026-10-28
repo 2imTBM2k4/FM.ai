@@ -1,16 +1,16 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { uuid } from 'expo';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import { ActivityIndicator, Button, Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-screens/experimental';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Screen, styles } from '@/components/screen';
 import { AIOrb } from '@/components/ui/ai-orb';
 import { GlassCard } from '@/components/ui/glass-card';
@@ -33,13 +33,11 @@ import { ChatComposer } from '@/features/chat/composer';
 import { mergeChatMessages } from '@/features/chat/history';
 import { vi } from '@/messages/vi';
 import {
-  buildCategoryChartItems,
   defaultAIService,
   loadPersistedAIReplyMap,
   readAIServiceContext,
   savePersistedAIReply,
   type AIResponsePayload,
-  type AIServiceContext,
 } from '@/services/ai-service';
 
 const INTRO_SUGGESTION_CHIPS = [
@@ -47,19 +45,19 @@ const INTRO_SUGGESTION_CHIPS = [
     id: 'budget-planner',
     label: vi.aiChipBudgetPlanner,
     icon: 'chart-pie' as const,
-    prompt: 'Budget Planner: Lập kế hoạch ngân sách 50/30/20 cho tháng này',
+    prompt: vi.aiPromptBudgetPlanner,
   },
   {
     id: 'goal-tracker',
     label: vi.aiChipGoalTracker,
     icon: 'bullseye-arrow' as const,
-    prompt: 'Goal Tracker: Kiểm tra tiến độ mục tiêu tiết kiệm của tôi',
+    prompt: vi.aiPromptGoalTracker,
   },
   {
     id: 'spending-insights',
     label: vi.aiChipSpendingInsights,
     icon: 'chart-bar' as const,
-    prompt: 'Spending Insights: Phân tích tỷ trọng chi tiêu theo danh mục',
+    prompt: vi.aiPromptSpendingInsights,
   },
 ] as const;
 
@@ -73,7 +71,6 @@ export default function Chat() {
   const [aiReplies, setAiReplies] = useState<Record<string, AIResponsePayload>>(
     {},
   );
-  const [aiContext, setAiContext] = useState<AIServiceContext | null>(null);
   const [showIntro, setShowIntro] = useState(false);
   const [typingForId, setTypingForId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +83,7 @@ export default function Chat() {
 
   const palette = useFinancePalette();
   const theme = useDesignTheme();
+  const router = useRouter();
 
   useEffect(() => {
     mounted.current = true;
@@ -99,17 +97,15 @@ export default function Chat() {
     paging.current = true;
     setLoading(true);
     try {
-      const [rows, persistedReplies, context] = await Promise.all([
+      const [rows, persistedReplies] = await Promise.all([
         withDatabase((db) => listChatMessages(db, before)),
         withDatabase(loadPersistedAIReplyMap),
-        readAIServiceContext(),
       ]);
       if (!mounted.current) return;
       setMessages((current) =>
         before ? mergeChatMessages(current, rows) : rows,
       );
       setAiReplies((current) => ({ ...current, ...persistedReplies }));
-      setAiContext(context);
       cursor.current = rows.at(-1);
       setMore(rows.length === 50);
       setLoadError(false);
@@ -126,13 +122,11 @@ export default function Chat() {
     Promise.all([
       withDatabase((db) => listChatMessages(db)),
       withDatabase(loadPersistedAIReplyMap),
-      readAIServiceContext(),
     ])
-      .then(([rows, persistedReplies, context]) => {
+      .then(([rows, persistedReplies]) => {
         if (cancelled) return;
         setMessages(rows);
         setAiReplies(persistedReplies);
-        setAiContext(context);
         cursor.current = rows.at(-1);
         setMore(rows.length === 50);
         setLoadError(false);
@@ -153,7 +147,6 @@ export default function Chat() {
     setTypingForId(userMessage.id);
     try {
       const context = await readAIServiceContext();
-      if (mounted.current) setAiContext(context);
       const reply = await defaultAIService.sendMessage(
         userMessage.text,
         context,
@@ -216,27 +209,12 @@ export default function Chat() {
     [triggerAIReply, typingForId],
   );
 
-  const fallbackChart = useMemo(
-    () => buildCategoryChartItems(aiContext?.topCategories ?? []),
-    [aiContext?.topCategories],
-  );
-
   const getReplyForMessage = useCallback(
     (item: ChatRow): AIResponsePayload | null => {
-      if (aiReplies[item.id]) return aiReplies[item.id];
       if (typingForId === item.id) return null;
-      // Provide a deterministic contextual response for messages created before AI reply persistence
-      return {
-        id: `auto-${item.id}`,
-        userMessageId: item.id,
-        replyText:
-          'PFM.ai đã ghi nhận nội dung trên máy của bạn và tổng hợp biểu đồ tỷ trọng chi tiêu theo danh mục:',
-        chartTitle: vi.aiChartTitle,
-        chartItems: fallbackChart.items,
-        createdAt: item.created_at,
-      };
+      return aiReplies[item.id] ?? null;
     },
-    [aiReplies, fallbackChart.items, typingForId],
+    [aiReplies, typingForId],
   );
 
   const isIntroVisible =
@@ -271,13 +249,24 @@ export default function Chat() {
                 {item.text}
               </Text>
             </View>
+            {!isItemTyping && !reply && (
+              <View style={localStyles.userActionRow}>
+                <Pill
+                  label={vi.aiAnalyzeMessageBtn}
+                  icon="creation"
+                  tone="primary"
+                  size="sm"
+                  onPress={() => void triggerAIReply(item)}
+                />
+              </View>
+            )}
           </View>
 
           {/* AI Assistant Response Bubble (Left-aligned with AIOrb avatar + Bar Chart) */}
           {isItemTyping ? (
             <View style={localStyles.aiRow}>
               <View style={localStyles.aiAvatarWrap}>
-                <AIOrb size={34} />
+                <AIOrb size={34} animated />
               </View>
               <View
                 style={[
@@ -301,7 +290,7 @@ export default function Chat() {
           ) : reply ? (
             <View style={localStyles.aiRow}>
               <View style={localStyles.aiAvatarWrap}>
-                <AIOrb size={34} />
+                <AIOrb size={34} animated={false} />
               </View>
               <View
                 style={[
@@ -332,14 +321,15 @@ export default function Chat() {
         </View>
       );
     },
-    [getReplyForMessage, theme, typingForId],
+    [getReplyForMessage, theme, triggerAIReply, typingForId],
   );
 
   return (
-    <SafeAreaView edges={{ bottom: Platform.OS === 'ios' }} style={styles.fill}>
+    <SafeAreaView edges={['bottom']} style={styles.fill}>
       <Screen
         title={vi.chat}
         scroll={false}
+        onBack={() => router.navigate('/')}
         headerRight={
           <View style={localStyles.headerActions}>
             {messages.length > 0 && (
@@ -613,6 +603,11 @@ const localStyles = StyleSheet.create({
   },
   userRow: {
     alignItems: 'flex-end',
+    gap: 6,
+  },
+  userActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   userBubble: {
     maxWidth: '84%',

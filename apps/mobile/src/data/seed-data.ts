@@ -53,6 +53,7 @@ export async function applyDevSeedData(
       walletId: string;
       categoryId: string;
       occurredOn: string;
+      timeOfDay?: string;
       note: string;
     }[] = [
       // Previous month transactions (for month-over-month comparison)
@@ -63,6 +64,7 @@ export async function applyDevSeedData(
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_INCOME_SALARY,
         occurredOn: `${previousMonth}-05`,
+        timeOfDay: '09:00:00',
         note: 'Lương tháng trước (Mẫu)',
       },
       {
@@ -72,6 +74,7 @@ export async function applyDevSeedData(
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_HOUSING_RENT,
         occurredOn: `${previousMonth}-06`,
+        timeOfDay: '10:15:00',
         note: 'Tiền thuê nhà tháng trước (Mẫu)',
       },
       {
@@ -81,6 +84,7 @@ export async function applyDevSeedData(
         walletId: DEFAULT_WALLET_ID,
         categoryId: CAT_FOOD_GROCERIES,
         occurredOn: `${previousMonth}-14`,
+        timeOfDay: '18:30:00',
         note: 'Đi siêu thị & thực phẩm (Mẫu)',
       },
       // Current month transactions
@@ -91,6 +95,7 @@ export async function applyDevSeedData(
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_INCOME_SALARY,
         occurredOn: `${currentMonth}-01`,
+        timeOfDay: '09:00:00',
         note: 'Lương chính tháng này (Mẫu)',
       },
       {
@@ -100,6 +105,7 @@ export async function applyDevSeedData(
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_INCOME_BONUS,
         occurredOn: `${currentMonth}-02`,
+        timeOfDay: '11:00:00',
         note: 'Thưởng dự án (Mẫu)',
       },
       {
@@ -109,6 +115,7 @@ export async function applyDevSeedData(
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_HOUSING_RENT,
         occurredOn: `${currentMonth}-02`,
+        timeOfDay: '14:20:00',
         note: 'Tiền thuê nhà (Mẫu)',
       },
       {
@@ -118,6 +125,7 @@ export async function applyDevSeedData(
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_FOOD_GROCERIES,
         occurredOn: `${currentMonth}-03`,
+        timeOfDay: '17:45:00',
         note: 'Đi siêu thị cuối tuần (Mẫu)',
       },
       {
@@ -127,6 +135,7 @@ export async function applyDevSeedData(
         walletId: DEFAULT_WALLET_ID,
         categoryId: CAT_HOUSING_UTILITIES,
         occurredOn: `${currentMonth}-03`,
+        timeOfDay: '19:15:00',
         note: 'Hóa đơn điện nước & Internet (Mẫu)',
       },
       {
@@ -136,6 +145,7 @@ export async function applyDevSeedData(
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_SHOPPING,
         occurredOn: `${currentMonth}-04`,
+        timeOfDay: '15:00:00',
         note: 'Mua đồ gia dụng (Mẫu)',
       },
       {
@@ -145,6 +155,7 @@ export async function applyDevSeedData(
         walletId: DEFAULT_WALLET_ID,
         categoryId: CAT_TRANSPORT_RIDE,
         occurredOn: `${currentMonth}-04`,
+        timeOfDay: '18:10:00',
         note: 'Di chuyển xe công nghệ (Mẫu)',
       },
       {
@@ -154,6 +165,7 @@ export async function applyDevSeedData(
         walletId: DEFAULT_WALLET_ID,
         categoryId: CAT_FOOD_EATING_OUT,
         occurredOn: `${currentMonth}-05`,
+        timeOfDay: '20:00:00',
         note: 'Ăn tối cùng gia đình (Mẫu)',
       },
       {
@@ -162,7 +174,8 @@ export async function applyDevSeedData(
         amount: 95_000,
         walletId: DEFAULT_WALLET_ID,
         categoryId: CAT_FOOD_COFFEE,
-        occurredOn: `${currentMonth}-05`,
+        occurredOn: referenceDate,
+        timeOfDay: '08:30:00',
         note: 'Cà phê sáng & bánh ngọt (Mẫu)',
       },
       {
@@ -171,13 +184,14 @@ export async function applyDevSeedData(
         amount: 420_000,
         walletId: DEV_BANK_WALLET_ID,
         categoryId: CAT_ENTERTAINMENT,
-        occurredOn: `${currentMonth}-05`,
+        occurredOn: referenceDate,
+        timeOfDay: '10:30:00',
         note: 'Vé xem phim & giải trí (Mẫu)',
       },
     ];
 
     for (const item of sampleTransactions) {
-      const occurredAt = `${item.occurredOn}T09:00:00+07:00`;
+      const occurredAt = `${item.occurredOn}T${item.timeOfDay ?? '09:00:00'}+07:00`;
       await tx.runAsync(
         `INSERT INTO transactions (
           id, kind, amount, wallet_id, to_wallet_id, category_id, debt_id,

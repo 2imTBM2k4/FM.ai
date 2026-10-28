@@ -10,7 +10,10 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { GradientBackground } from '@/components/ui/gradient-background';
 import {
   createSoftShadow,
@@ -44,6 +47,7 @@ export function Screen({
 }>) {
   const palette = useFinancePalette();
   const designTheme = useDesignTheme();
+  const insets = useSafeAreaInsets();
   const content = (
     <View style={[styles.column, scroll ? styles.scrollColumn : styles.fill]}>
       {!hideHeader && (
@@ -117,7 +121,13 @@ export function Screen({
               contentInsetAdjustmentBehavior="automatic"
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
-              contentContainerStyle={styles.scroll}
+              contentContainerStyle={[
+                styles.scroll,
+                {
+                  paddingBottom:
+                    DesignSpacing.bottomTabClearance + insets.bottom,
+                },
+              ]}
               showsVerticalScrollIndicator={false}
             >
               {content}

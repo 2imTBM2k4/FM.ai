@@ -337,7 +337,7 @@ export function ChatComposer({
       {showQuickBar && (
         <View style={composerStyles.quickActionsRow}>
           <Pill
-            label="Ăn sáng 30k"
+            label={vi.aiQuickMorningSample}
             icon="lightning-bolt-outline"
             tone="primary"
             size="sm"

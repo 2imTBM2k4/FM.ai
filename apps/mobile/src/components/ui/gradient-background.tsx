@@ -33,7 +33,6 @@ function buildLandscapeHillPaths(width: number, height: number) {
 
 export interface GradientBackgroundProps {
   themeMode?: ThemeMode;
-  animated?: boolean;
 }
 
 /**

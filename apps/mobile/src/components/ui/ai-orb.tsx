@@ -10,8 +10,9 @@ import {
   Skia,
   vec,
 } from '@shopify/react-native-skia';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -20,6 +21,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { vi } from '@/messages/vi';
 
 const ORB_SHADER_SOURCE = `
 uniform float2 uResolution;
@@ -93,25 +95,83 @@ export interface AIOrbProps {
 }
 
 /**
- * Holographic glass AI Orb rendered via @shopify/react-native-skia shader.
- * Shared across the Home AI Assistant card, AI Intro screen (large), and Chat AI avatar (small).
- * Runs breathing (scale/rotation) and internal wave animations on the UI thread.
+ * Lightweight static holographic orb avatar using native Views and ExpoLinearGradient.
+ * Avoids allocating Skia Canvas/GPU textures or Reanimated loops inside long FlatLists.
  */
-export const AIOrb = memo(function AIOrb({
-  size = 120,
-  animated = true,
-  accessibilityLabel = 'AI Orb',
-}: AIOrbProps) {
+const StaticOrbAvatar = memo(function StaticOrbAvatar({
+  size,
+  accessibilityLabel,
+}: {
+  size: number;
+  accessibilityLabel: string;
+}) {
+  const sphereDiameter = Math.round(size * 0.86);
+  const sphereRadius = sphereDiameter / 2;
+  const specSize = Math.max(6, Math.round(sphereDiameter * 0.36));
+
+  return (
+    <View
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel}
+      pointerEvents="none"
+      style={[styles.container, { width: size, height: size }]}
+    >
+      <View
+        style={[
+          styles.staticGlow,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          },
+        ]}
+      >
+        <ExpoLinearGradient
+          colors={['#5CE1FF', '#7C5CFF', '#FF7AD9']}
+          locations={[0, 0.52, 1]}
+          start={{ x: 0.1, y: 0.1 }}
+          end={{ x: 0.9, y: 0.9 }}
+          style={{
+            width: sphereDiameter,
+            height: sphereDiameter,
+            borderRadius: sphereRadius,
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.68)',
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              top: Math.round(sphereDiameter * 0.14),
+              left: Math.round(sphereDiameter * 0.16),
+              width: specSize,
+              height: Math.round(specSize * 0.72),
+              borderRadius: specSize / 2,
+              backgroundColor: 'rgba(255, 255, 255, 0.62)',
+            }}
+          />
+        </ExpoLinearGradient>
+      </View>
+    </View>
+  );
+});
+
+/**
+ * Animated holographic glass AI Orb rendered via @shopify/react-native-skia shader.
+ */
+const AnimatedSkiaOrb = memo(function AnimatedSkiaOrb({
+  size,
+  accessibilityLabel,
+}: {
+  size: number;
+  accessibilityLabel: string;
+}) {
   const orbEffect = useMemo(() => createOrbRuntimeEffect(), []);
   const time = useSharedValue(0);
   const breath = useSharedValue(0);
 
   useEffect(() => {
-    if (!animated) {
-      time.set(1.2);
-      breath.set(0);
-      return;
-    }
     time.set(
       withRepeat(
         withTiming(Math.PI * 8, {
@@ -132,7 +192,7 @@ export const AIOrb = memo(function AIOrb({
         true,
       ),
     );
-  }, [animated, breath, time]);
+  }, [breath, time]);
 
   const containerAnimatedStyle = useAnimatedStyle(() => {
     const scale = 0.96 + breath.value * 0.07;
@@ -214,10 +274,36 @@ export const AIOrb = memo(function AIOrb({
   );
 });
 
+/**
+ * Shared AI Orb component:
+ * - When `animated={true}` (default: Home card, AI Intro hero, and active AI typing indicator),
+ *   renders the Skia RuntimeShader holographic sphere with UI-thread breathing animation.
+ * - When `animated={false}` (small avatars inside Chat FlatList), renders `StaticOrbAvatar`
+ *   without allocating Skia Canvas or running infinite animations.
+ */
+export const AIOrb = memo(function AIOrb({
+  size = 120,
+  animated = true,
+  accessibilityLabel = vi.aiOrbLabel,
+}: AIOrbProps) {
+  if (!animated) {
+    return (
+      <StaticOrbAvatar size={size} accessibilityLabel={accessibilityLabel} />
+    );
+  }
+  return (
+    <AnimatedSkiaOrb size={size} accessibilityLabel={accessibilityLabel} />
+  );
+});
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  staticGlow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(124, 92, 255, 0.16)',
+  },
 });
-

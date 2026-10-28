@@ -44,6 +44,7 @@ import { NotificationsView } from '@/features/notifications/notifications-view';
 import { vi } from '@/messages/vi';
 import { useApp } from '@/state/app';
 import { usePreferences } from '@/state/preferences';
+import { formatRecentTransactionTime } from './transaction-time';
 
 const PALETTE = [
   '#7C5CFF',
@@ -239,12 +240,7 @@ export function OverviewScreen({
       </View>
 
       {/* Glassmorphic Month Selector Pill Bar */}
-      <GlassCard
-        radius="xl"
-        padding={8}
-        liquidGlass
-        style={localStyles.monthBar}
-      >
+      <GlassCard radius="xl" padding={8} style={localStyles.monthBar}>
         <View style={styles.inlineRow}>
           <IconButton
             icon="chevron-left"
@@ -315,7 +311,7 @@ export function OverviewScreen({
       {data && (
         <>
           {/* Hero Total Balance Card */}
-          <GlassCard variant="elevated" radius="xl" padding={22} liquidGlass>
+          <GlassCard variant="elevated" radius="xl" padding={22}>
             <View style={localStyles.heroTopRow}>
               <View style={{ flex: 1, gap: 6 }}>
                 <Text
@@ -449,7 +445,6 @@ export function OverviewScreen({
             <GlassCard
               radius="lg"
               padding={14}
-              liquidGlass
               style={localStyles.summaryCardItem}
             >
               <View style={localStyles.summaryIconRow}>
@@ -493,7 +488,6 @@ export function OverviewScreen({
             <GlassCard
               radius="lg"
               padding={14}
-              liquidGlass
               style={localStyles.summaryCardItem}
             >
               <View style={localStyles.summaryIconRow}>
@@ -537,7 +531,6 @@ export function OverviewScreen({
             <GlassCard
               radius="lg"
               padding={14}
-              liquidGlass
               style={localStyles.summaryCardItem}
             >
               <View style={localStyles.summaryIconRow}>
@@ -582,7 +575,6 @@ export function OverviewScreen({
             variant="elevated"
             radius="xl"
             padding={18}
-            liquidGlass
             onPress={() => router.navigate('/chat')}
             accessibilityLabel={vi.chat}
           >
@@ -655,7 +647,7 @@ export function OverviewScreen({
           </GlassCard>
 
           {/* Recent Transactions Card (See All) */}
-          <GlassCard radius="xl" padding={20} liquidGlass>
+          <GlassCard radius="xl" padding={20}>
             <View style={styles.row}>
               <Text
                 variant="titleMedium"
@@ -736,7 +728,11 @@ export function OverviewScreen({
                                 variant="bodySmall"
                                 style={{ color: designTheme.text.muted }}
                               >
-                                {row.occurred_on}
+                                {formatRecentTransactionTime(
+                                  row.occurred_on,
+                                  row.occurred_at,
+                                  date,
+                                )}
                                 {walletName ? ` · ${walletName}` : ''}
                               </Text>
                             </View>
@@ -790,7 +786,7 @@ export function OverviewScreen({
           <HistoryChart data={data} />
 
           {/* Monthly Budgets Summary Card */}
-          <GlassCard radius="xl" padding={20} liquidGlass>
+          <GlassCard radius="xl" padding={20}>
             <View style={styles.row}>
               <Text
                 variant="titleMedium"
@@ -889,7 +885,7 @@ export function OverviewScreen({
           </GlassCard>
 
           {/* Current Savings Goals Card */}
-          <GlassCard radius="xl" padding={20} liquidGlass>
+          <GlassCard radius="xl" padding={20}>
             <View style={styles.row}>
               <Text
                 variant="titleMedium"

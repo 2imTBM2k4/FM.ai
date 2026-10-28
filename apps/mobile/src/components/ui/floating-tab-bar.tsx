@@ -13,6 +13,7 @@ import {
   DesignSpacing,
   useDesignTheme,
 } from '@/constants/theme';
+import { vi } from '@/messages/vi';
 
 export interface TabBarItem {
   key: string;
@@ -27,12 +28,13 @@ export interface FloatingTabBarProps {
   onSelect(key: string): void;
   onAddPress(): void;
   addAccessibilityLabel?: string;
+  bottomInset?: number;
 }
 
 /**
  * Renders an individual circular icon button inside the floating black pill tab bar.
  */
-function TabIconButton({
+export function TabIconButton({
   item,
   active,
   onPress,
@@ -86,22 +88,24 @@ function TabIconButton({
  * Floating black pill tab bar with circular tab icons (purple active background)
  * and a separate circular purple "+" button on the right to add a transaction.
  */
-export const FloatingTabBar = memo(function FloatingTabBar({
+export function FloatingTabBarView({
   items,
   activeKey,
   onSelect,
   onAddPress,
-  addAccessibilityLabel = 'Add transaction',
+  addAccessibilityLabel = vi.addTransaction,
+  bottomInset,
 }: FloatingTabBarProps) {
   const theme = useDesignTheme();
-  const insets = useSafeAreaInsets();
+  const safeAreaInsets = useSafeAreaInsets();
   const addScale = useSharedValue(1);
 
   const addAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: addScale.value }],
   }));
 
-  const bottomOffset = Math.max(insets.bottom, DesignSpacing.sm) + 4;
+  const resolvedBottomInset = bottomInset ?? safeAreaInsets.bottom;
+  const bottomOffset = Math.max(resolvedBottomInset, DesignSpacing.sm) + 4;
 
   return (
     <View
@@ -111,6 +115,7 @@ export const FloatingTabBar = memo(function FloatingTabBar({
       <View style={styles.row}>
         {/* Floating Black Pill Container */}
         <View
+          accessibilityRole="tablist"
           style={[
             styles.pillBar,
             createSoftShadow(theme.mode, 'lg'),
@@ -162,7 +167,9 @@ export const FloatingTabBar = memo(function FloatingTabBar({
       </View>
     </View>
   );
-});
+}
+
+export const FloatingTabBar = memo(FloatingTabBarView);
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -202,4 +209,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-

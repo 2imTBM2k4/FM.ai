@@ -546,4 +546,15 @@ export const vi = {
   notificationsSubtitle:
     'Theo dõi cảnh báo ngân sách, lịch giao dịch định kỳ và biến động số dư ngay trên thiết bị.',
   notificationsEmpty: 'Hiện chưa có cảnh báo mới nào.',
+  aiOrbLabel: 'Quả cầu Trợ lý AI',
+  aiPromptBudgetPlanner:
+    'Budget Planner: Lập kế hoạch ngân sách 50/30/20 cho tháng này',
+  aiPromptGoalTracker:
+    'Goal Tracker: Kiểm tra tiến độ mục tiêu tiết kiệm của tôi',
+  aiPromptSpendingInsights:
+    'Spending Insights: Phân tích tỷ trọng chi tiêu theo danh mục',
+  aiAnalyzeMessageBtn: 'Phân tích bằng AI',
+  aiQuickMorningSample: 'Ăn sáng 30k',
+  txTimeToday: 'Hôm nay',
+  txTimeYesterday: 'Hôm qua',
 } as const;

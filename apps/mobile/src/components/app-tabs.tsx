@@ -1,86 +1,162 @@
-import { NativeTabs } from 'expo-router/native-tabs';
-import { Platform } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import type { ComponentProps } from 'react';
+import {
+  FloatingTabBar,
+  type TabBarItem,
+} from '@/components/ui/floating-tab-bar';
 import { useDesignTheme } from '@/constants/theme';
 import { vi } from '@/messages/vi';
+import { usePreferences } from '@/state/preferences';
+
+export type ExpoBottomTabBarProps = Parameters<
+  NonNullable<ComponentProps<typeof Tabs>['tabBar']>
+>[0];
 
 /**
- * Native iOS Liquid Glass / Material tab bar navigator.
- * Uses Pastel Sunset background color on tab triggers so native iOS containers stay bright.
+ * The 5 main application tabs ordered and mapped to match the reference design:
+ * Home (index), Chart/Stats (budgets), AI Sparkles (chat), Wallet/Transactions (transactions), More (settings).
+ */
+export const APP_TAB_ITEMS: readonly TabBarItem[] = [
+  {
+    key: 'index',
+    label: vi.overview,
+    icon: 'home-variant-outline',
+    activeIcon: 'home-variant',
+  },
+  {
+    key: 'budgets',
+    label: vi.statsTabTitle,
+    icon: 'chart-box-outline',
+    activeIcon: 'chart-box',
+  },
+  {
+    key: 'chat',
+    label: vi.chat,
+    icon: 'creation',
+    activeIcon: 'creation',
+  },
+  {
+    key: 'transactions',
+    label: vi.transactions,
+    icon: 'wallet-outline',
+    activeIcon: 'wallet',
+  },
+  {
+    key: 'settings',
+    label: vi.settings,
+    icon: 'dots-horizontal-circle-outline',
+    activeIcon: 'dots-horizontal-circle',
+  },
+] as const;
+
+/**
+ * Custom bottom tab bar adapter bridging Expo Router's BottomTabBarProps to FloatingTabBar.
+ * Hides the floating tab bar on the 'chat' route (Option 1.B) so the AI composer sits flush at the bottom.
+ */
+export function CustomBottomTabBar({
+  state,
+  emitter,
+  navigateToTab,
+  insets,
+}: ExpoBottomTabBarProps) {
+  const router = useRouter();
+
+  const activeRoute = state.routes[state.index];
+  const activeRouteName = activeRoute?.name ?? 'index';
+
+  // Per Option 1.B: hide the floating tab bar when inside the Chat screen
+  if (activeRouteName === 'chat') {
+    return null;
+  }
+
+  const handleSelectTab = (routeName: string) => {
+    const targetRoute = state.routes.find((r) => r.name === routeName);
+    if (!targetRoute) {
+      router.navigate(routeName === 'index' ? '/' : (`/${routeName}` as never));
+      return;
+    }
+    const isFocused = targetRoute.key === activeRoute?.key;
+    const event = emitter.emit({
+      type: 'tabPress',
+      target: targetRoute.key,
+      canPreventDefault: true,
+    });
+    if (!isFocused && !event.defaultPrevented) {
+      navigateToTab(targetRoute.key);
+    }
+  };
+
+  const handleAddTransactionPress = () => {
+    usePreferences.getState().requestAddTransaction('manual');
+    const txRoute = state.routes.find((r) => r.name === 'transactions');
+    if (txRoute) {
+      navigateToTab(txRoute.key);
+    } else {
+      router.navigate('/transactions');
+    }
+  };
+
+  return (
+    <FloatingTabBar
+      items={APP_TAB_ITEMS}
+      activeKey={activeRouteName}
+      onSelect={handleSelectTab}
+      onAddPress={handleAddTransactionPress}
+      addAccessibilityLabel={vi.addTransaction}
+      bottomInset={insets.bottom}
+    />
+  );
+}
+
+/**
+ * Root Tab Navigator using Expo Router's JavaScript <Tabs> and the custom FloatingTabBar.
  */
 export default function AppTabs() {
   const theme = useDesignTheme();
-  const isDark = theme.mode === 'dark';
 
   return (
-    <NativeTabs
-      tintColor={theme.brand.primary}
-      backgroundColor={
-        Platform.OS === 'android' ? theme.card.surfaceElevated : undefined
-      }
-      blurEffect={
-        isDark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'
-      }
-      minimizeBehavior="automatic"
-      iconColor={{
-        default: theme.text.muted,
-        selected: theme.brand.primary,
-      }}
-      labelStyle={{
-        default: {
-          color: theme.text.muted,
-          fontSize: 11,
-          fontWeight: '500',
-        },
-        selected: {
-          color: theme.brand.primary,
-          fontSize: 11,
-          fontWeight: '700',
-        },
+    <Tabs
+      tabBar={(props) => <CustomBottomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: theme.sky.upperMid },
       }}
     >
-      <NativeTabs.Trigger
+      <Tabs.Screen
         name="index"
-        contentStyle={{ backgroundColor: theme.sky.upperMid }}
-      >
-        <NativeTabs.Trigger.Label>{vi.overview}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger
-        name="transactions"
-        contentStyle={{ backgroundColor: theme.sky.upperMid }}
-      >
-        <NativeTabs.Trigger.Label>{vi.transactions}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          sf="arrow.left.arrow.right.circle.fill"
-          md="swap_horiz"
-        />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger
+        options={{
+          title: vi.overview,
+          tabBarAccessibilityLabel: vi.overview,
+        }}
+      />
+      <Tabs.Screen
         name="budgets"
-        contentStyle={{ backgroundColor: theme.sky.upperMid }}
-      >
-        <NativeTabs.Trigger.Label>{vi.budgets}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="chart.pie.fill" md="pie_chart" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger
+        options={{
+          title: vi.statsTabTitle,
+          tabBarAccessibilityLabel: vi.statsTabTitle,
+        }}
+      />
+      <Tabs.Screen
         name="chat"
-        disableAutomaticContentInsets={Platform.OS === 'ios'}
-        contentStyle={{ backgroundColor: theme.sky.upperMid }}
-      >
-        <NativeTabs.Trigger.Label>{vi.chat}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="sparkles" md="auto_awesome" />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger
+        options={{
+          title: vi.chat,
+          tabBarAccessibilityLabel: vi.chat,
+        }}
+      />
+      <Tabs.Screen
+        name="transactions"
+        options={{
+          title: vi.transactions,
+          tabBarAccessibilityLabel: vi.transactions,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
-        contentStyle={{ backgroundColor: theme.sky.upperMid }}
-      >
-        <NativeTabs.Trigger.Label>{vi.settings}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="gearshape.fill" md="settings" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+        options={{
+          title: vi.settings,
+          tabBarAccessibilityLabel: vi.settings,
+        }}
+      />
+    </Tabs>
   );
 }

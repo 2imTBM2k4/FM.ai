@@ -22,7 +22,6 @@ export interface GlassCardProps extends PropsWithChildren {
   variant?: 'default' | 'elevated' | 'subtle' | 'accent';
   radius?: 'md' | 'lg' | 'xl';
   padding?: number;
-  liquidGlass?: boolean;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   accessibilityLabel?: string;
