@@ -27,6 +27,7 @@ import {
 } from './budgets';
 import {
   createTransaction,
+  insertTransaction,
   updateTransaction,
   deleteTransaction,
   undoDeleteTransaction,
@@ -54,10 +55,653 @@ import {
   reorderWallets,
   requireActiveWallet,
 } from './wallets';
+import {
+  recordParseLearning,
+  recordParseLearningQueries,
+  readClassifierContext,
+} from './parse-learning';
+import { parseEntry } from '@pfm/domain';
+import {
+  readQuickEntryContext,
+  saveParsedEntries,
+  undoParsedEntries,
+} from './quick-entry';
+import {
+  makeEntryDrafts,
+  confirmSelectedEntries,
+} from '@/features/quick-entry/draft';
 
 let sqlite: DatabaseSync;
 let db: Database;
 let temporaryFile: string | undefined;
+
+const entryNow = new Date('2026-10-23T09:00:00+07:00');
+async function entrySession(raw: string) {
+  const context = await readQuickEntryContext(db);
+  const result = parseEntry(raw, {
+    clock: { now: () => entryNow, timeZone: 'Asia/Ho_Chi_Minh' },
+    ...context,
+  });
+  return {
+    context,
+    result,
+    drafts: makeEntryDrafts(result, context, randomUUID),
+  };
+}
+
+it('commits confirmed chat text with financial entries and learning, and undoes all three', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const session = await entrySession('ăn sáng 30k');
+  expect(await listChatMessages(db)).toEqual([]);
+  const messageId = randomUUID();
+  const receipt = await saveParsedEntries(
+    db,
+    session.result.raw,
+    confirmSelectedEntries(session.result, session.drafts, entryNow),
+    'now',
+    messageId,
+  );
+  expect(await listChatMessages(db)).toEqual([
+    { id: messageId, text: 'ăn sáng 30k', created_at: 'now' },
+  ]);
+  expect((await listWallets(db))[0].balance).toBe(-30000);
+  await undoParsedEntries(db, receipt);
+  expect(await listChatMessages(db)).toEqual([]);
+  expect((await listWallets(db))[0].balance).toBe(0);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n).toBe(
+    0,
+  );
+});
+
+it.each(['duplicate', 'oversize'])(
+  'rolls back finance and learning when chat text fails: %s',
+  async (mode) => {
+    await migrate(db);
+    await seed(db, 'old');
+    const session = await entrySession('ăn sáng 30k');
+    const messageId = randomUUID();
+    if (mode === 'duplicate')
+      await saveChatMessage(db, messageId, 'existing question', 'old');
+    await expect(
+      saveParsedEntries(
+        db,
+        mode === 'oversize' ? 'a'.repeat(501) : session.result.raw,
+        confirmSelectedEntries(session.result, session.drafts, entryNow),
+        'now',
+        messageId,
+      ),
+    ).rejects.toThrow();
+    expect((await listTransactions(db)).length).toBe(0);
+    expect((await listWallets(db))[0].balance).toBe(0);
+    expect(
+      sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n,
+    ).toBe(0);
+    expect((await listChatMessages(db)).length).toBe(
+      mode === 'duplicate' ? 1 : 0,
+    );
+  },
+);
+
+it('refuses chat-linked undo if its saved message changed, leaving money and learning intact', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const session = await entrySession('cf 30k');
+  const messageId = randomUUID();
+  const receipt = await saveParsedEntries(
+    db,
+    session.result.raw,
+    confirmSelectedEntries(session.result, session.drafts, entryNow),
+    'now',
+    messageId,
+  );
+  sqlite
+    .prepare('UPDATE chat_messages SET text=? WHERE id=?')
+    .run('edited', messageId);
+  await expect(undoParsedEntries(db, receipt)).rejects.toThrow('ENTRY_CHANGED');
+  expect((await listWallets(db))[0].balance).toBe(-30000);
+  expect((await listChatMessages(db))[0].text).toBe('edited');
+});
+
+it('saves only explicitly confirmed quick entries with source/raw metadata and exact batch undo', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const expense = await entrySession('ăn sáng 30k');
+  expect((await listTransactions(db)).length).toBe(0);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n).toBe(
+    0,
+  );
+  const saved = await saveParsedEntries(
+    db,
+    expense.result.raw,
+    confirmSelectedEntries(expense.result, expense.drafts, entryNow),
+    'one',
+  );
+  expect((await listTransactions(db))[0]).toMatchObject({
+    kind: 'expense',
+    amount: 30000,
+    source: 'parsed',
+    raw_input: 'ăn sáng 30k',
+  });
+  expect((await listWallets(db))[0].balance).toBe(-30000);
+  await undoParsedEntries(db, saved);
+  expect((await listWallets(db))[0].balance).toBe(0);
+  expect((await listTransactions(db)).length).toBe(0);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n).toBe(
+    0,
+  );
+  const income = await entrySession('khách trả tiền hàng 50k');
+  await saveParsedEntries(
+    db,
+    income.result.raw,
+    confirmSelectedEntries(income.result, income.drafts, entryNow),
+    'income',
+  );
+  expect((await listTransactions(db))[0]).toMatchObject({
+    kind: 'income',
+    amount: 50000,
+  });
+  expect((await listWallets(db))[0].balance).toBe(50000);
+});
+
+it('can confirm just one or both candidates, never sums them and prevents duplicate saves', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const session = await entrySession('cf 30k bánh 20k');
+  const one = session.drafts.map((draft, i) => ({
+    ...draft,
+    selected: i === 0,
+  }));
+  const prepared = confirmSelectedEntries(session.result, one, entryNow);
+  const receipt = await saveParsedEntries(
+    db,
+    session.result.raw,
+    prepared,
+    'one',
+  );
+  expect((await listTransactions(db)).map((row) => row.amount)).toEqual([
+    30000,
+  ]);
+  await expect(
+    saveParsedEntries(db, session.result.raw, prepared, 'again'),
+  ).rejects.toThrow();
+  expect((await listWallets(db))[0].balance).toBe(-30000);
+  await undoParsedEntries(db, receipt);
+  const both = await entrySession('cf 30k bánh 20k');
+  const batch = await saveParsedEntries(
+    db,
+    both.result.raw,
+    confirmSelectedEntries(both.result, both.drafts, entryNow),
+    'both',
+  );
+  expect(
+    (await listTransactions(db)).map((row) => row.amount).sort((a, b) => a - b),
+  ).toEqual([20000, 30000]);
+  expect((await listWallets(db))[0].balance).toBe(-50000);
+  await undoParsedEntries(db, batch);
+  expect((await listTransactions(db)).length).toBe(0);
+});
+
+it('requires amount acknowledgement and an explicit kind, and cancellation changes nothing', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const assumed = await entrySession('ăn sáng 30');
+  expect(() =>
+    confirmSelectedEntries(assumed.result, assumed.drafts, entryNow),
+  ).toThrow('ENTRY_AMOUNT_CONFIRMATION');
+  expect(() =>
+    confirmSelectedEntries(
+      assumed.result,
+      assumed.drafts.map((d) => ({ ...d, selected: false })),
+      entryNow,
+    ),
+  ).toThrow('ENTRY_SELECTION');
+  const unknown = await entrySession('bạn trả tiền ăn 100k');
+  expect(() =>
+    confirmSelectedEntries(unknown.result, unknown.drafts, entryNow),
+  ).toThrow('ENTRY_KIND');
+  expect((await listTransactions(db)).length).toBe(0);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n).toBe(
+    0,
+  );
+  const receipt = await saveParsedEntries(
+    db,
+    assumed.result.raw,
+    confirmSelectedEntries(
+      assumed.result,
+      assumed.drafts.map((d) => ({ ...d, amountConfirmed: true })),
+      entryNow,
+    ),
+    'confirmed',
+  );
+  expect((await listWallets(db))[0].balance).toBe(-30000);
+  await undoParsedEntries(db, receipt);
+});
+
+it('learns edited final categories after actual saves and rolls back learning on undo', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const custom = randomUUID();
+  await createCategory(
+    db,
+    custom,
+    { name: 'Breakfast', kind: 'expense' },
+    'old',
+  );
+  for (let i = 0; i < 2; i++) {
+    const session = await entrySession('ăn sáng 30k');
+    const drafts = session.drafts.map((d) => ({ ...d, categoryId: custom }));
+    const receipt = await saveParsedEntries(
+      db,
+      session.result.raw,
+      confirmSelectedEntries(session.result, drafts, entryNow),
+      `save-${i}`,
+    );
+    if (i === 1) {
+      expect((await entrySession('ăn sáng 30k')).drafts[0].categoryId).toBe(
+        custom,
+      );
+      await undoParsedEntries(db, receipt);
+      expect((await entrySession('ăn sáng 30k')).drafts[0].categoryId).not.toBe(
+        custom,
+      );
+    }
+  }
+  expect((await listWallets(db))[0].balance).toBe(-30000);
+});
+
+it('rolls back all candidates and learning if a later reference becomes inactive', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const other = randomUUID();
+  await createWallet(db, other, { name: 'Other', kind: 'bank' }, 'old');
+  const session = await entrySession('cf 30k bánh 20k');
+  const drafts = session.drafts.map((d, i) => ({
+    ...d,
+    walletId: i === 1 ? other : d.walletId,
+  }));
+  const prepared = confirmSelectedEntries(session.result, drafts, entryNow);
+  await setWalletArchived(db, other, true, 'archived');
+  await expect(
+    saveParsedEntries(db, session.result.raw, prepared, 'save'),
+  ).rejects.toThrow('WALLET_ARCHIVED');
+  expect((await listTransactions(db)).length).toBe(0);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n).toBe(
+    0,
+  );
+});
+
+it('creates new parsed debts, validates repayments and undoes both without orphan debt rows', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const loan = await entrySession('mượn Hùng 500k');
+  const loanReceipt = await saveParsedEntries(
+    db,
+    loan.result.raw,
+    confirmSelectedEntries(
+      loan.result,
+      loan.drafts.map((d) => ({ ...d, counterpartyLabel: 'Hùng' })),
+      entryNow,
+    ),
+    'loan',
+  );
+  expect((await listDebts(db))[0]).toMatchObject({
+    counterparty_label: 'Hùng',
+    principal: 500000,
+    outstanding: 500000,
+  });
+  const paid = await entrySession('trả nợ Hùng 100k');
+  expect(paid.drafts[0].debtId).toBe((await listDebts(db))[0].id);
+  const repayReceipt = await saveParsedEntries(
+    db,
+    paid.result.raw,
+    confirmSelectedEntries(paid.result, paid.drafts, entryNow),
+    'repay',
+  );
+  expect((await listDebts(db))[0].outstanding).toBe(400000);
+  const tooMuch = await entrySession('trả nợ Hùng 500k');
+  await expect(
+    saveParsedEntries(
+      db,
+      tooMuch.result.raw,
+      confirmSelectedEntries(tooMuch.result, tooMuch.drafts, entryNow),
+      'overpay',
+    ),
+  ).rejects.toThrow('DEBT_OVERPAY');
+  await undoParsedEntries(db, repayReceipt);
+  expect((await listDebts(db))[0].outstanding).toBe(500000);
+  await undoParsedEntries(db, loanReceipt);
+  expect((await listDebts(db)).length).toBe(0);
+  expect((await listWallets(db))[0].balance).toBe(0);
+});
+
+it.each(['transaction', 'learning'])(
+  'refuses undo after %s changed instead of erasing later work',
+  async (changed) => {
+    await migrate(db);
+    await seed(db, 'old');
+    const session = await entrySession('ăn sáng 30k');
+    const receipt = await saveParsedEntries(
+      db,
+      session.result.raw,
+      confirmSelectedEntries(session.result, session.drafts, entryNow),
+      'save',
+    );
+    if (changed === 'transaction')
+      sqlite
+        .prepare('UPDATE transactions SET note=? WHERE id=?')
+        .run('edited', session.drafts[0].transactionId);
+    else
+      await recordParseLearning(
+        db,
+        {
+          noteText: 'ăn sáng',
+          kind: 'expense',
+          categoryId: receipt.transactions[0].category_id,
+        },
+        'later',
+      );
+    await expect(undoParsedEntries(db, receipt)).rejects.toThrow(
+      'ENTRY_CHANGED',
+    );
+    expect((await listTransactions(db))[0].note).toBe(
+      changed === 'transaction' ? 'edited' : 'ăn sáng',
+    );
+    expect((await listWallets(db))[0].balance).toBe(-30000);
+  },
+);
+
+it('saves a confirmed transfer with two active wallets and reverses both balances on undo', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const destination = randomUUID();
+  await createWallet(db, destination, { name: 'Bank', kind: 'bank' }, 'old');
+  const session = await entrySession('chuyển ví 200k');
+  const drafts = session.drafts.map((d) => ({ ...d, toWalletId: destination }));
+  const receipt = await saveParsedEntries(
+    db,
+    session.result.raw,
+    confirmSelectedEntries(session.result, drafts, entryNow),
+    'transfer',
+  );
+  expect((await listTransactions(db))[0]).toMatchObject({
+    kind: 'transfer',
+    category_id: null,
+    to_wallet_id: destination,
+  });
+  expect(
+    (await listWallets(db)).find((w) => w.id === destination)?.balance,
+  ).toBe(200000);
+  expect(
+    (await listWallets(db)).find((w) => w.id === DEFAULT_WALLET_ID)?.balance,
+  ).toBe(-200000);
+  await undoParsedEntries(db, receipt);
+  expect((await listWallets(db)).map((w) => w.balance)).toEqual([0, 0]);
+});
+
+it('creates a lent debt, receives payment, and removes a failed new-debt batch completely', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const lent = await entrySession('cho Lan mượn 1tr');
+  await saveParsedEntries(
+    db,
+    lent.result.raw,
+    confirmSelectedEntries(
+      lent.result,
+      lent.drafts.map((d) => ({ ...d, counterpartyLabel: 'Lan' })),
+      entryNow,
+    ),
+    'lend',
+  );
+  const received = await entrySession('Lan trả nợ 1tr');
+  const payment = await saveParsedEntries(
+    db,
+    received.result.raw,
+    confirmSelectedEntries(received.result, received.drafts, entryNow),
+    'received',
+  );
+  expect((await listDebts(db))[0]).toMatchObject({
+    status: 'closed',
+    outstanding: 0,
+  });
+  expect((await listWallets(db))[0].balance).toBe(0);
+  await undoParsedEntries(db, payment);
+  expect((await listDebts(db))[0]).toMatchObject({
+    status: 'open',
+    outstanding: 1000000,
+  });
+  const batch = await entrySession('mượn Hùng 500k cf 30k');
+  const prepared = confirmSelectedEntries(
+    batch.result,
+    batch.drafts.map((d) => ({ ...d, counterpartyLabel: 'Hùng' })),
+    entryNow,
+  );
+  prepared[1].input.walletId = randomUUID();
+  await expect(
+    saveParsedEntries(db, batch.result.raw, prepared, 'failed'),
+  ).rejects.toThrow('WALLET_NOT_FOUND');
+  expect((await listDebts(db)).map((d) => d.counterparty_label)).toEqual([
+    'Lan',
+  ]);
+  expect((await listWallets(db))[0].balance).toBe(-1000000);
+});
+
+it('uses the last manual/parsed active source wallet and falls back after archival', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const other = randomUUID();
+  await createWallet(db, other, { name: 'Other', kind: 'bank' }, 'old');
+  const session = await entrySession('cf 30k');
+  await saveParsedEntries(
+    db,
+    session.result.raw,
+    confirmSelectedEntries(
+      session.result,
+      session.drafts.map((d) => ({ ...d, walletId: other })),
+      entryNow,
+    ),
+    'save',
+  );
+  expect((await entrySession('cf 25k')).drafts[0].walletId).toBe(other);
+  await setWalletArchived(db, other, true, 'archived');
+  expect((await entrySession('cf 25k')).drafts[0].walletId).toBe(
+    DEFAULT_WALLET_ID,
+  );
+});
+
+it('learns a custom category only after two confirmed choices, not on preview reads', async () => {
+  sqlite.close();
+  temporaryFile = join(tmpdir(), `pfm-learning-${randomUUID()}.db`);
+  sqlite = new DatabaseSync(temporaryFile);
+  sqlite.exec('PRAGMA foreign_keys=ON');
+  await migrate(db);
+  await seed(db, 'old');
+  const categoryId = randomUUID();
+  await createCategory(
+    db,
+    categoryId,
+    { name: 'Custom', kind: 'expense' },
+    'old',
+  );
+  const clock = {
+    now: () => new Date('2026-10-23T09:00:00+07:00'),
+    timeZone: 'Asia/Ho_Chi_Minh',
+  };
+  const preview = async () =>
+    parseEntry('ăn sáng 30k', { clock, ...(await readClassifierContext(db)) })
+      .candidates[0];
+  expect((await preview()).categoryKey).toBe('expense.food.eating_out');
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n).toBe(
+    0,
+  );
+  await recordParseLearning(
+    db,
+    { noteText: 'ăn sáng', kind: 'expense', categoryId },
+    'one',
+  );
+  expect((await preview()).categoryKey).toBe('expense.food.eating_out');
+  await recordParseLearning(
+    db,
+    { noteText: 'ăn sáng', kind: 'expense', categoryId },
+    'two',
+  );
+  expect(await preview()).toMatchObject({
+    categoryKey: null,
+    categoryIdHint: categoryId,
+  });
+  expect(
+    sqlite
+      .prepare(
+        'SELECT token_key,hit_count,updated_at FROM parse_learning ORDER BY token_key',
+      )
+      .all(),
+  ).toEqual([
+    { token_key: 'an', hit_count: 2, updated_at: 'two' },
+    { token_key: 'sang', hit_count: 2, updated_at: 'two' },
+  ]);
+  sqlite.close();
+  sqlite = new DatabaseSync(temporaryFile);
+  sqlite.exec('PRAGMA foreign_keys=ON');
+  await migrate(db);
+  expect((await preview()).categoryIdHint).toBe(categoryId);
+  await archiveCategory(db, categoryId, null, 'archived');
+  expect((await preview()).categoryKey).toBe('expense.food.eating_out');
+  await restoreCategory(db, categoryId, 'restored');
+  expect((await preview()).categoryIdHint).toBe(categoryId);
+});
+
+it('upserts nullable learned categories once per token and validates final kind/category choices', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  const noteText = 'Xe xe hôm nay 30k';
+  await recordParseLearning(db, { noteText, kind: 'expense' }, 'one');
+  await recordParseLearning(db, { noteText, kind: 'expense' }, 'two');
+  expect(
+    sqlite
+      .prepare('SELECT token_key,category_id,hit_count FROM parse_learning')
+      .all(),
+  ).toEqual([{ token_key: 'xe', category_id: null, hit_count: 2 }]);
+  const categories = await listCategories(db);
+  const income = categories.find((c) => c.kind === 'income')!;
+  await expect(
+    // @ts-expect-error Runtime input validation must reject an unknown kind.
+    recordParseLearning(db, { noteText, kind: 'unknown' }, 'bad'),
+  ).rejects.toThrow();
+  for (const input of [
+    { noteText, kind: 'expense', categoryId: randomUUID() },
+    { noteText, kind: 'expense', categoryId: income.id },
+    { noteText, kind: 'transfer', categoryId: income.id },
+  ] as const)
+    await expect(recordParseLearning(db, input, 'bad')).rejects.toThrow();
+  expect(
+    sqlite.prepare('SELECT SUM(hit_count) n FROM parse_learning').get()?.n,
+  ).toBe(2);
+});
+
+it('rolls learning back with its enclosing confirmation and rejects unsafe hit counts', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  await expect(
+    db.transaction(async (queries) => {
+      await insertTransaction(
+        queries,
+        randomUUID(),
+        {
+          kind: 'expense',
+          amount: 30000,
+          walletId: DEFAULT_WALLET_ID,
+          occurredOn: '2026-10-23',
+          occurredAt: '2026-10-23T09:00:00+07:00',
+          source: 'parsed',
+        },
+        'now',
+      );
+      await recordParseLearningQueries(
+        queries,
+        { noteText: 'cà phê', kind: 'expense' },
+        'now',
+      );
+      throw new Error('SAVE_FAILED');
+    }),
+  ).rejects.toThrow('SAVE_FAILED');
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM parse_learning').get()?.n).toBe(
+    0,
+  );
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM transactions').get()?.n).toBe(
+    0,
+  );
+  await recordParseLearning(db, { noteText: 'cà phê', kind: 'expense' }, 'one');
+  sqlite.exec(
+    "UPDATE parse_learning SET hit_count=9007199254740991 WHERE token_key='phe'",
+  );
+  await expect(
+    recordParseLearning(
+      db,
+      { noteText: 'cà phê', kind: 'expense' },
+      'overflow',
+    ),
+  ).rejects.toThrow('PARSE_LEARNING_OVERFLOW');
+  expect(
+    sqlite
+      .prepare("SELECT hit_count FROM parse_learning WHERE token_key='ca'")
+      .get()?.hit_count,
+  ).toBe(1);
+});
+
+it('reads known debt names and ignores archived-parent learning targets without deleting history', async () => {
+  await migrate(db);
+  await seed(db, 'old');
+  await createDebt(
+    db,
+    randomUUID(),
+    randomUUID(),
+    {
+      counterpartyLabel: 'Hùng',
+      direction: 'borrowed',
+      amount: 500000,
+      walletId: DEFAULT_WALLET_ID,
+      occurredOn: '2026-10-23',
+    },
+    'old',
+  );
+  const context = await readClassifierContext(db);
+  expect(context.knownCounterparties).toEqual(['Hùng']);
+  const clock = {
+    now: () => new Date('2026-10-23T09:00:00+07:00'),
+    timeZone: 'Asia/Ho_Chi_Minh',
+  };
+  expect(
+    parseEntry('trả nợ Hùng 30k', { clock, ...context }).candidates[0].kind,
+  ).toBe('debt_repay_paid');
+  expect(
+    parseEntry('Lan trả nợ 30k', { clock, ...context }).candidates[0].kind,
+  ).toBe('unknown');
+  const categories = await listCategories(db);
+  const child = categories.find((c) => c.system_key === 'expense.food.coffee')!;
+  await recordParseLearning(
+    db,
+    { noteText: 'sáng', kind: 'expense', categoryId: child.id },
+    'one',
+  );
+  await recordParseLearning(
+    db,
+    { noteText: 'sáng', kind: 'expense', categoryId: child.id },
+    'two',
+  );
+  await archiveCategory(db, child.parent_id!, null, 'archived');
+  expect((await readClassifierContext(db)).learned[0]).toMatchObject({
+    available: false,
+    hitCount: 2,
+    categoryId: child.id,
+  });
+  await expect(
+    recordParseLearning(
+      db,
+      { noteText: 'sáng', kind: 'expense', categoryId: child.id },
+      'bad',
+    ),
+  ).rejects.toThrow('CATEGORY_ARCHIVED');
+});
 
 beforeEach(() => {
   sqlite = new DatabaseSync(':memory:');

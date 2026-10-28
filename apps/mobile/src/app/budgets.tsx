@@ -1,4 +1,12 @@
+import { useState } from 'react';
 import { BudgetManager } from '@/features/budgets/budget-manager';
+import { StatsView } from '@/features/stats/stats-view';
+
 export default function Budgets() {
-  return <BudgetManager />;
+  const [activeTab, setActiveTab] = useState<'stats' | 'budgets'>('stats');
+  return activeTab === 'stats' ? (
+    <StatsView onSwitchToBudgets={() => setActiveTab('budgets')} />
+  ) : (
+    <BudgetManager onSwitchToStats={() => setActiveTab('stats')} />
+  );
 }

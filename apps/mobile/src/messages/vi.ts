@@ -1,4 +1,62 @@
 export const vi = {
+  quickTitle: 'Nhập nhanh giao dịch',
+  quickInput: 'Bạn vừa thu hoặc chi gì?',
+  quickExample: 'Ví dụ: ăn sáng 30k hôm qua',
+  quickReview: 'Kiểm tra và xác nhận',
+  quickPreview: 'Kết quả gợi ý',
+  quickConfirmTitle: 'Xác nhận giao dịch',
+  quickConfirmHint:
+    'Kiểm tra từng khoản trước khi lưu. Bỏ chọn khoản không muốn ghi nhận.',
+  quickChoose: 'Chọn một mục',
+  quickUnknown: 'Chưa xác định — cần chọn loại',
+  quickCheckField: 'Gợi ý cần kiểm tra lại',
+  quickAmountConfirm: 'Tôi xác nhận số tiền bên trên là đúng',
+  quickAssumed:
+    'Số không có đơn vị đã được hiểu là nghìn đồng. Hãy xác nhận lại số tiền.',
+  quickFraction:
+    'Số tiền có phần lẻ hoặc dấu phân cách chưa hợp lệ. Hãy kiểm tra lại.',
+  quickZero: 'Số tiền phải lớn hơn 0.',
+  quickLarge: 'Số tiền vượt giới hạn 100 tỷ đồng.',
+  quickInvalidDate: 'Chưa đọc được ngày hợp lệ. Hãy sửa ngày trước khi lưu.',
+  quickFuture:
+    'Ngày giao dịch nằm trong tương lai. Bạn vẫn có thể xác nhận lưu.',
+  quickMultiple:
+    'Có nhiều khoản tiền; kiểm tra riêng loại, danh mục và số tiền của từng khoản.',
+  quickNoAmount: 'Chưa nhận diện được số tiền. Hãy nhập số tiền khi xác nhận.',
+  quickAmbiguous:
+    'Chưa rõ loại hoặc chiều giao dịch. Hãy chọn lại trước khi lưu.',
+  quickSelect: 'Ghi nhận khoản này',
+  quickDetails: 'Chỉnh sửa / xem giải thích',
+  quickWhy: 'Vì sao có gợi ý này?',
+  quickSave: 'Lưu các khoản đã chọn',
+  quickSaved: 'Đã lưu giao dịch và ghi nhận lựa chọn của bạn.',
+  quickUndo: 'Hoàn tác nhóm giao dịch vừa lưu',
+  quickUndone: 'Đã hoàn tác giao dịch và phần học từ lần xác nhận đó.',
+  quickUndoHint: 'Hoàn tác áp dụng cho cả nhóm vừa lưu và phần học tương ứng.',
+  quickUndoFailed:
+    'Chưa thể hoàn tác. Dữ liệu có thể đã được chỉnh sửa; không có thay đổi nào được áp dụng.',
+  quickLoadError: 'Không tải được dữ liệu nhập nhanh. Hãy thử lại.',
+  quickParseError:
+    'Không phân tích được câu nhập. Hãy thử sửa nội dung hoặc tải lại dữ liệu.',
+  quickRefreshError:
+    'Đã lưu thay đổi nhưng chưa tải lại được dữ liệu. Không cần lưu lần nữa; hãy nhấn Tải lại.',
+  quickInvalid:
+    'Kiểm tra lại các khoản đã chọn: loại, số tiền, ví, danh mục và ngày.',
+  quickSelectRequired: 'Chọn ít nhất một khoản để lưu.',
+  quickKindRequired: 'Cần chọn loại giao dịch cho khoản chưa xác định.',
+  quickAmountRequired:
+    'Cần tích xác nhận số tiền đã được suy đoán từ số không có đơn vị.',
+  quickDebtRequired: 'Cần chọn khoản nợ hiện có, đúng chiều trả hoặc nhận.',
+  quickCounterpartyRequired:
+    'Nhập tên người hoặc tổ chức cho khoản vay/cho vay mới.',
+  quickCounterparty: 'Tên người / tổ chức — khoản nợ mới',
+  quickNewDebtHint:
+    'Lần vay/cho vay này sẽ tạo một khoản nợ mới. Bạn có thể chỉnh hạn trả trong sổ nợ sau.',
+  quickExistingDebt: 'Khoản nợ cần trả / nhận',
+  quickNoDebt:
+    'Chưa có khoản nợ đang mở phù hợp. Hãy kiểm tra lại loại giao dịch hoặc tạo khoản nợ trong Vay và cho vay.',
+  quickMatchedAmount: 'Số tiền nhận từ',
+  quickSelectedCount: 'Số khoản đã chọn',
   addBudget: 'Thêm ngân sách',
   editBudget: 'Sửa ngân sách',
   saveBudget: 'Lưu ngân sách',
@@ -228,7 +286,7 @@ export const vi = {
   overview: 'Tổng quan',
   transactions: 'Giao dịch',
   budgets: 'Ngân sách',
-  chat: 'Trợ lý AI',
+  chat: 'Trò chuyện',
   settings: 'Cài đặt',
   loading: 'Đang mở dữ liệu trên máy…',
   retry: 'Thử lại',
@@ -265,15 +323,26 @@ export const vi = {
     'Chưa bật mã hóa cơ sở dữ liệu và chưa kết nối Google Drive trong bản thử nghiệm.',
   chatDisconnected: 'AI chưa kết nối',
   chatExplanation:
-    'Bạn có thể gửi và lưu tin nhắn trên máy để thử thao tác. Chưa có phản hồi từ AI; tin nhắn không được gửi đến dịch vụ bên ngoài.',
+    'Ghi giao dịch hoặc hỏi tư vấn tại đây. Giao dịch cần xác nhận trước khi lưu; AI chưa kết nối nên câu hỏi chỉ được lưu trên máy.',
   chatEmpty:
-    'Chưa có tin nhắn. Nhập nội dung bên dưới để thử lưu cuộc trò chuyện trên máy.',
-  chatInput: 'Tin nhắn của bạn',
-  send: 'Lưu tin nhắn',
+    'Thử “ăn sáng 30k” để ghi giao dịch, hoặc “Tháng này tôi chi bao nhiêu?” để hỏi tư vấn.',
+  chatInput: 'Ghi giao dịch hoặc hỏi tư vấn',
+  chatInputHint: 'Ví dụ: ăn sáng 30k hôm qua',
+  chatRouteAdvice: 'Câu hỏi tư vấn · AI chưa kết nối',
+  chatRouteTransaction: 'Gợi ý ghi giao dịch',
+  chatRouteMultiple: 'khoản giao dịch cần xác nhận riêng',
+  chatRouteAmbiguous: 'Chưa rõ ý; cần chọn ghi giao dịch hay hỏi tư vấn',
+  chatChooseRoute: 'Bạn muốn xử lý nội dung này thế nào?',
+  chatChooseTransaction: 'Ghi giao dịch',
+  chatChooseAdvice: 'Hỏi tư vấn',
+  chatChangeRoute: 'Chọn cách xử lý khác',
+  chatAdviceSaved:
+    'Đã lưu câu hỏi trên máy. AI chưa kết nối nên chưa có câu trả lời; nội dung chưa được gửi ra ngoài.',
+  send: 'Gửi',
   chatLimit: 'Tối đa 500 ký tự. Chỉ lưu trên thiết bị này.',
   chatLoadError: 'Không tải được tin nhắn. Hãy thử lại.',
   loadOlder: 'Tải tin nhắn cũ hơn',
-  localMessage: 'Đã lưu trên máy · AI chưa kết nối',
+  localMessage: 'Tin nhắn lưu trên máy',
   transactionPending:
     'Phần nhập thu, chi và chuyển ví đang được triển khai ở giai đoạn 2.',
   budgetPending:
@@ -416,4 +485,65 @@ export const vi = {
   goalLoadError: 'Không tải được mục tiêu. Hãy thử lại.',
   goalRefreshError:
     'Đã lưu thay đổi nhưng chưa tải lại được danh sách. Hãy thử tải lại.',
+  aiIntroTitle: 'Trợ lý Tài chính AI của bạn',
+  aiIntroSubtitle:
+    'Ghi chép thu chi bằng câu tự nhiên hoặc chạm vào gợi ý bên dưới để phân tích ngân sách, mục tiêu và cơ cấu chi tiêu.',
+  aiChipBudgetPlanner: 'Budget Planner',
+  aiChipGoalTracker: 'Goal Tracker',
+  aiChipSpendingInsights: 'Spending Insights',
+  aiTyping: 'PFM.ai đang phân tích dữ liệu trên máy…',
+  aiViewIntro: 'Màn giới thiệu AI',
+  aiViewChat: 'Lịch sử trò chuyện',
+  aiChartTitle: 'Phân bổ chi tiêu theo danh mục (%)',
+  aiQuickAttach: 'Điền mẫu giao dịch nhanh',
+  aiQuickImageSample: 'Gợi ý từ hóa đơn ảnh',
+  aiQuickVoiceSample: 'Gợi ý nhập giọng nói',
+  // Stage 4: Quick Natural Entry inside Add Transaction & Instant Search/Detail
+  txNaturalTitle: 'Nhập nhanh bằng câu tự nhiên',
+  txNaturalHint: 'Ví dụ: ăn sáng 30k, cà phê 25k hoặc lương 15tr',
+  txNaturalParseBtn: 'Phân tích & Xác nhận',
+  txSearchPlaceholder: 'Tìm kiếm theo ghi chú, danh mục, số tiền…',
+  txFilterAll: 'Tất cả',
+  txDetailTitle: 'Chi tiết giao dịch',
+  // Stage 5: Stats & Analytics Screen
+  statsTabTitle: 'Thống kê',
+  budgetsTabTitle: 'Ngân sách',
+  statsRange1M: '1 Tháng',
+  statsRange3M: '3 Tháng',
+  statsRange6M: '6 Tháng',
+  statsIncomeVsExpense: 'Biểu đồ Thu nhập & Chi tiêu',
+  statsCategoryAllocation: 'Phân bổ chi tiêu theo danh mục',
+  statsSavingsRate: 'Tỷ lệ tiết kiệm ròng',
+  statsNoExpenseData: 'Chưa có khoản chi tiêu nào trong giai đoạn đã chọn.',
+  // Stage 6: Settings (Language, Currency, Theme, Seed Data, CSV Import/Export, Notifications)
+  settingsPreferencesTitle: 'Tuỳ chỉnh Hiển thị & Ngôn ngữ',
+  settingsLanguageLabel: 'Ngôn ngữ giao diện',
+  settingsLanguageVi: 'Tiếng Việt',
+  settingsLanguageEn: 'English',
+  settingsCurrencyLabel: 'Đơn vị tiền tệ',
+  settingsCurrencyVnd: 'VND (₫)',
+  settingsCurrencyUsd: 'USD ($)',
+  settingsThemeLabel: 'Giao diện (Theme)',
+  settingsThemeLight: 'Sáng (Pastel Sunset)',
+  settingsThemeDark: 'Tối (Midnight Aurora)',
+  settingsSeedLabel: 'Dữ liệu mẫu (Seed Data)',
+  settingsSeedDescription:
+    'Bật để nạp bộ giao dịch, ngân sách và mục tiêu mẫu phục vụ kiểm thử giao diện; tắt để gỡ sạch dữ liệu mẫu.',
+  settingsSeedActiveNotice: 'Đã nạp bộ dữ liệu mẫu thành công.',
+  settingsSeedRemovedNotice: 'Đã gỡ dữ liệu mẫu khỏi máy.',
+  csvSectionTitle: 'Xuất / Nhập dữ liệu (.csv Local)',
+  csvSectionHint:
+    'Sao lưu hoặc khôi phục danh sách giao dịch bằng định dạng .csv ngay trên thiết bị (chưa nối Google Drive).',
+  csvExportBtn: 'Tạo bản xuất .csv',
+  csvImportBtn: 'Nhập từ nội dung .csv',
+  csvLoadSampleBtn: 'Điền mẫu .csv thử nghiệm',
+  csvInputLabel: 'Nội dung .csv (header: occurred_on,kind,amount,note,category)',
+  csvExportSuccess: 'Đã xuất dữ liệu giao dịch ra định dạng .csv bên dưới.',
+  csvImportSuccess: 'Đã nhập giao dịch từ .csv vào bộ nhớ máy.',
+  csvImportError:
+    'Nội dung .csv không hợp lệ. Vui lòng kiểm tra cột ngày (YYYY-MM-DD), loại (expense/income) và số tiền nguyên dương.',
+  notificationsTitle: 'Thông báo & Cảnh báo',
+  notificationsSubtitle:
+    'Theo dõi cảnh báo ngân sách, lịch giao dịch định kỳ và biến động số dư ngay trên thiết bị.',
+  notificationsEmpty: 'Hiện chưa có cảnh báo mới nào.',
 } as const;

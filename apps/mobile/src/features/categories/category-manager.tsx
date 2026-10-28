@@ -7,6 +7,7 @@ import { BackHandler, FlatList, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
+  Divider,
   HelperText,
   Icon,
   RadioButton,
@@ -16,7 +17,14 @@ import {
   TextInput,
   useTheme,
 } from 'react-native-paper';
-import { Screen, styles } from '@/components/screen';
+import {
+  EmptyStateCard,
+  IconBadge,
+  Screen,
+  StatusPill,
+  styles,
+} from '@/components/screen';
+import { useFinancePalette } from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import type { Database } from '@/data/migrate';
 import {
@@ -48,6 +56,7 @@ export function CategoryManager({ onClose }: { onClose(): void }) {
   const [mode, setMode] = useState<Mode>({ type: 'list' });
   const working = useRef(false);
   const { colors } = useTheme();
+  const palette = useFinancePalette();
   const back = useCallback(() => {
     if (working.current) return;
     if (mode.type === 'list') onClose();
@@ -199,14 +208,16 @@ export function CategoryManager({ onClose }: { onClose(): void }) {
       ...rows.filter((row) => row.parent_id === parent.id),
     ]);
   return (
-    <Screen title={vi.manageCategories} scroll={false}>
-      <View style={styles.row}>
-        <Button contentStyle={styles.button} onPress={back}>
-          {vi.back}
-        </Button>
+    <Screen
+      title={vi.manageCategories}
+      onBack={back}
+      backDisabled={busy}
+      scroll={false}
+      headerRight={
         <Button
-          contentStyle={styles.button}
+          contentStyle={styles.compactButton}
           mode="contained"
+          icon="plus"
           disabled={loading || busy}
           onPress={() => {
             setMode({ type: 'form', category: null, id: uuid.v4() });
@@ -216,7 +227,8 @@ export function CategoryManager({ onClose }: { onClose(): void }) {
         >
           {vi.addCategory}
         </Button>
-      </View>
+      }
+    >
       <SegmentedButtons
         value={archived ? 'archived' : 'active'}
         onValueChange={(value) => setArchived(value === 'archived')}
@@ -225,12 +237,39 @@ export function CategoryManager({ onClose }: { onClose(): void }) {
           { value: 'archived', label: vi.walletArchived, disabled: busy },
         ]}
       />
-      {archived && <Text>{vi.restoreCategoryHint}</Text>}
+      {archived && (
+        <Text variant="bodySmall" style={{ color: palette.textMuted }}>
+          {vi.restoreCategoryHint}
+        </Text>
+      )}
       {saved && (
-        <Text accessibilityLiveRegion="polite">{vi.categorySaved}</Text>
+        <View
+          style={[
+            styles.subtlePanel,
+            {
+              backgroundColor: palette.incomeSoft,
+              borderColor: palette.income,
+            },
+          ]}
+        >
+          <Text
+            accessibilityLiveRegion="polite"
+            style={{ color: palette.incomeInk, fontWeight: '600' }}
+          >
+            {vi.categorySaved}
+          </Text>
+        </View>
       )}
       {!!error && (
-        <View>
+        <View
+          style={[
+            styles.subtlePanel,
+            {
+              backgroundColor: palette.dangerSoft,
+              borderColor: palette.danger,
+            },
+          ]}
+        >
           <Text accessibilityRole="alert" style={{ color: colors.error }}>
             {error}
           </Text>
@@ -240,16 +279,21 @@ export function CategoryManager({ onClose }: { onClose(): void }) {
         </View>
       )}
       {loading ? (
-        <ActivityIndicator accessibilityLabel={vi.loading} />
+        <View style={{ paddingVertical: 28, alignItems: 'center' }}>
+          <ActivityIndicator size="large" accessibilityLabel={vi.loading} />
+        </View>
       ) : (
         <FlatList
           style={styles.fill}
+          showsVerticalScrollIndicator={false}
           data={tree.filter((row) => !!row.is_archived === archived)}
           keyExtractor={(row) => row.id}
           renderItem={renderItem}
-          contentContainerStyle={{ gap: 16, paddingBottom: 20 }}
+          contentContainerStyle={{ gap: 12, paddingBottom: 24 }}
           contentInsetAdjustmentBehavior="automatic"
-          ListEmptyComponent={<Text>{vi.categoriesEmpty}</Text>}
+          ListEmptyComponent={
+            <EmptyStateCard icon="shape-outline" message={vi.categoriesEmpty} />
+          }
         />
       )}
     </Screen>
@@ -271,33 +315,58 @@ const CategoryItem = memo(function CategoryItem({
   onRestore(category: CategoryRow): void;
   busy: boolean;
 }) {
-  const { colors } = useTheme();
+  const palette = useFinancePalette();
+  const isExpense = category.kind === 'expense';
   return (
     <View
       style={[
         styles.panel,
         {
-          backgroundColor: colors.surface,
-          marginLeft: category.parent_id ? 16 : 0,
+          backgroundColor: palette.surface,
+          borderColor: palette.border,
+          marginLeft: category.parent_id ? 18 : 0,
+          padding: 16,
+          gap: 10,
         },
       ]}
     >
       <View style={styles.row}>
-        <Icon
-          source={category.icon ?? 'tag'}
-          color={category.color ?? colors.primary}
-          size={24}
-        />
-        <Text variant="titleMedium" style={{ flex: 1 }}>
-          {category.name}
-        </Text>
+        <View style={[styles.inlineRow, { flex: 1 }]}>
+          <IconBadge
+            icon={category.icon ?? 'tag-outline'}
+            bg={isExpense ? palette.expenseSoft : palette.incomeSoft}
+            fg={
+              category.color ??
+              (isExpense ? palette.expenseInk : palette.incomeInk)
+            }
+            size={40}
+            iconSize={20}
+          />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="titleMedium" style={{ fontWeight: '700' }}>
+              {category.name}
+            </Text>
+            <Text variant="bodySmall" style={{ color: palette.textMuted }}>
+              {isExpense ? vi.categoryExpense : vi.categoryIncome}
+              {parentName ? ` · ${parentName}` : ''}
+            </Text>
+          </View>
+        </View>
+        {!!category.is_fixed_cost && (
+          <StatusPill
+            label={vi.categoryFixed}
+            bg={palette.primarySoft}
+            fg={palette.primaryInk}
+          />
+        )}
       </View>
-      <Text>
-        {category.kind === 'expense' ? vi.categoryExpense : vi.categoryIncome}
-        {parentName ? ` · ${parentName}` : ''}
-      </Text>
+
+      <Divider style={{ backgroundColor: palette.borderSubtle }} />
+
       {category.is_archived ? (
         <Button
+          mode="contained-tonal"
+          icon="restore"
           disabled={busy}
           contentStyle={styles.button}
           onPress={() => onRestore(category)}
@@ -305,17 +374,21 @@ const CategoryItem = memo(function CategoryItem({
           {vi.restoreCategory}
         </Button>
       ) : (
-        <View style={styles.row}>
+        <View style={[styles.row, { justifyContent: 'flex-end' }]}>
           <Button
+            compact
+            mode="contained-tonal"
+            icon="pencil-outline"
             disabled={busy}
-            contentStyle={styles.button}
             onPress={() => onEdit(category)}
           >
             {vi.editCategory}
           </Button>
           <Button
+            compact
+            mode="text"
+            icon="archive-arrow-down-outline"
             disabled={busy}
-            contentStyle={styles.button}
             onPress={() => onArchive(category)}
           >
             {vi.archiveCategory}
@@ -368,6 +441,7 @@ function CategoryForm({
   const kind = useWatch({ control, name: 'kind' });
   const disabled = busy || isSubmitting;
   const { colors } = useTheme();
+  const palette = useFinancePalette();
   const icons = [
     vi.categoryIconTag,
     vi.categoryIconFood,
@@ -383,76 +457,165 @@ function CategoryForm({
     vi.categoryColorPurple,
   ];
   return (
-    <Screen title={category ? vi.editCategory : vi.addCategory}>
-      <Button contentStyle={styles.button} disabled={disabled} onPress={onBack}>
-        {vi.back}
-      </Button>
-      <Text>{vi.categoryStructureHint}</Text>
-      <Controller
-        control={control}
-        name="name"
-        rules={{
-          validate: (value) => !!value.trim() || vi.categoryNameRequired,
-        }}
-        render={({ field, fieldState }) => (
-          <View>
-            <TextInput
-              mode="outlined"
-              label={vi.categoryName}
-              accessibilityLabel={vi.categoryName}
-              value={field.value}
-              onChangeText={field.onChange}
-              onBlur={field.onBlur}
-              disabled={disabled}
-              error={!!fieldState.error}
-            />
-            {!!fieldState.error && (
-              <HelperText type="error">{fieldState.error.message}</HelperText>
-            )}
-          </View>
-        )}
-      />
-      <Text accessibilityRole="header" variant="titleMedium">
-        {vi.categoryKind}
-      </Text>
-      <Controller
-        control={control}
-        name="kind"
-        render={({ field }) => (
-          <RadioButton.Group
-            value={field.value}
-            onValueChange={(value) => {
-              field.onChange(value);
-              setValue('parentId', '');
-            }}
-          >
-            <RadioButton.Item
-              value="expense"
-              label={vi.categoryExpense}
-              disabled={disabled || !!category}
-              style={{ minHeight: 48 }}
-            />
-            <RadioButton.Item
-              value="income"
-              label={vi.categoryIncome}
-              disabled={disabled || !!category}
-              style={{ minHeight: 48 }}
-            />
-          </RadioButton.Group>
-        )}
-      />
-      <Text accessibilityRole="header" variant="titleMedium">
-        {vi.categoryParent}
-      </Text>
-      {category ? (
-        <Text>
-          {rows.find((row) => row.id === category.parent_id)?.name ??
-            vi.categoryNoParent}
-        </Text>
-      ) : (
+    <Screen
+      title={category ? vi.editCategory : vi.addCategory}
+      subtitle={vi.categoryStructureHint}
+      onBack={onBack}
+      backDisabled={disabled}
+    >
+      <View
+        style={[
+          styles.panel,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
         <Controller
           control={control}
-          name="parentId"
+          name="name"
+          rules={{
+            validate: (value) => !!value.trim() || vi.categoryNameRequired,
+          }}
+          render={({ field, fieldState }) => (
+            <View>
+              <TextInput
+                mode="outlined"
+                label={vi.categoryName}
+                accessibilityLabel={vi.categoryName}
+                value={field.value}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                disabled={disabled}
+                error={!!fieldState.error}
+                left={<TextInput.Icon icon="shape-outline" />}
+              />
+              {!!fieldState.error && (
+                <HelperText type="error">{fieldState.error.message}</HelperText>
+              )}
+            </View>
+          )}
+        />
+        <Text
+          accessibilityRole="header"
+          variant="titleSmall"
+          style={{ fontWeight: '700' }}
+        >
+          {vi.categoryKind}
+        </Text>
+        <Controller
+          control={control}
+          name="kind"
+          render={({ field }) => (
+            <RadioButton.Group
+              value={field.value}
+              onValueChange={(value) => {
+                field.onChange(value);
+                setValue('parentId', '');
+              }}
+            >
+              <RadioButton.Item
+                value="expense"
+                label={vi.categoryExpense}
+                disabled={disabled || !!category}
+                style={{ minHeight: 48 }}
+              />
+              <RadioButton.Item
+                value="income"
+                label={vi.categoryIncome}
+                disabled={disabled || !!category}
+                style={{ minHeight: 48 }}
+              />
+            </RadioButton.Group>
+          )}
+        />
+        <Divider style={{ backgroundColor: palette.borderSubtle }} />
+        <Controller
+          control={control}
+          name="isFixedCost"
+          render={({ field }) => (
+            <View style={styles.row}>
+              <Text style={{ flex: 1, fontWeight: '500' }}>
+                {vi.categoryFixed}
+              </Text>
+              <Switch
+                value={field.value}
+                onValueChange={field.onChange}
+                accessibilityLabel={vi.categoryFixed}
+                disabled={disabled}
+              />
+            </View>
+          )}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.panel,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
+        <Text
+          accessibilityRole="header"
+          variant="titleSmall"
+          style={{ fontWeight: '700' }}
+        >
+          {vi.categoryParent}
+        </Text>
+        {category ? (
+          <Text style={{ color: palette.textMuted }}>
+            {rows.find((row) => row.id === category.parent_id)?.name ??
+              vi.categoryNoParent}
+          </Text>
+        ) : (
+          <Controller
+            control={control}
+            name="parentId"
+            render={({ field }) => (
+              <RadioButton.Group
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <RadioButton.Item
+                  value=""
+                  label={vi.categoryNoParent}
+                  disabled={disabled}
+                  style={{ minHeight: 48 }}
+                />
+                {rows
+                  .filter(
+                    (row) =>
+                      !row.is_archived && !row.parent_id && row.kind === kind,
+                  )
+                  .map((row) => (
+                    <RadioButton.Item
+                      key={row.id}
+                      value={row.id}
+                      label={row.name}
+                      disabled={disabled}
+                      style={{ minHeight: 48 }}
+                    />
+                  ))}
+              </RadioButton.Group>
+            )}
+          />
+        )}
+      </View>
+
+      <View
+        style={[
+          styles.panel,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
+        <Text
+          accessibilityRole="header"
+          variant="titleSmall"
+          style={{ fontWeight: '700' }}
+        >
+          {vi.categoryIcon}
+        </Text>
+        <Controller
+          control={control}
+          name="icon"
           render={({ field }) => (
             <RadioButton.Group
               value={field.value}
@@ -460,98 +623,61 @@ function CategoryForm({
             >
               <RadioButton.Item
                 value=""
-                label={vi.categoryNoParent}
+                label={vi.categoryDefault}
                 disabled={disabled}
                 style={{ minHeight: 48 }}
               />
-              {rows
-                .filter(
-                  (row) =>
-                    !row.is_archived && !row.parent_id && row.kind === kind,
-                )
-                .map((row) => (
+              {CATEGORY_ICONS.map((icon, index) => (
+                <View key={icon} style={styles.row}>
+                  <Icon source={icon} size={24} />
                   <RadioButton.Item
-                    key={row.id}
-                    value={row.id}
-                    label={row.name}
+                    value={icon}
+                    label={icons[index]}
                     disabled={disabled}
-                    style={{ minHeight: 48 }}
+                    style={{ flex: 1, minHeight: 48 }}
                   />
-                ))}
+                </View>
+              ))}
             </RadioButton.Group>
           )}
         />
-      )}
-      <Controller
-        control={control}
-        name="isFixedCost"
-        render={({ field }) => (
-          <View style={styles.row}>
-            <Text style={{ flex: 1 }}>{vi.categoryFixed}</Text>
-            <Switch
+        <Divider style={{ backgroundColor: palette.borderSubtle }} />
+        <Text
+          accessibilityRole="header"
+          variant="titleSmall"
+          style={{ fontWeight: '700' }}
+        >
+          {vi.categoryColor}
+        </Text>
+        <Controller
+          control={control}
+          name="color"
+          render={({ field }) => (
+            <RadioButton.Group
               value={field.value}
               onValueChange={field.onChange}
-              accessibilityLabel={vi.categoryFixed}
-              disabled={disabled}
-            />
-          </View>
-        )}
-      />
-      <Text accessibilityRole="header" variant="titleMedium">
-        {vi.categoryIcon}
-      </Text>
-      <Controller
-        control={control}
-        name="icon"
-        render={({ field }) => (
-          <RadioButton.Group value={field.value} onValueChange={field.onChange}>
-            <RadioButton.Item
-              value=""
-              label={vi.categoryDefault}
-              disabled={disabled}
-              style={{ minHeight: 48 }}
-            />
-            {CATEGORY_ICONS.map((icon, index) => (
-              <View key={icon} style={styles.row}>
-                <Icon source={icon} size={24} />
-                <RadioButton.Item
-                  value={icon}
-                  label={icons[index]}
-                  disabled={disabled}
-                  style={{ flex: 1, minHeight: 48 }}
-                />
-              </View>
-            ))}
-          </RadioButton.Group>
-        )}
-      />
-      <Text accessibilityRole="header" variant="titleMedium">
-        {vi.categoryColor}
-      </Text>
-      <Controller
-        control={control}
-        name="color"
-        render={({ field }) => (
-          <RadioButton.Group value={field.value} onValueChange={field.onChange}>
-            <RadioButton.Item
-              value=""
-              label={vi.categoryDefault}
-              disabled={disabled}
-              style={{ minHeight: 48 }}
-            />
-            {CATEGORY_COLORS.map((color, index) => (
+            >
               <RadioButton.Item
-                key={color}
-                value={color}
-                label={colorNames[index]}
-                color={color}
+                value=""
+                label={vi.categoryDefault}
                 disabled={disabled}
                 style={{ minHeight: 48 }}
               />
-            ))}
-          </RadioButton.Group>
-        )}
-      />
+              {CATEGORY_COLORS.map((color, index) => (
+                <RadioButton.Item
+                  key={color}
+                  value={color}
+                  label={colorNames[index]}
+                  color={color}
+                  disabled={disabled}
+                  style={{ minHeight: 48 }}
+                />
+              ))}
+            </RadioButton.Group>
+          )}
+        />
+      </View>
+
       {!!error && (
         <Text accessibilityRole="alert" style={{ color: colors.error }}>
           {error}
@@ -559,6 +685,7 @@ function CategoryForm({
       )}
       <Button
         mode="contained"
+        icon="check"
         contentStyle={styles.button}
         disabled={disabled}
         loading={disabled}
@@ -596,6 +723,7 @@ function ArchiveForm({
 }) {
   const [replacement, setReplacement] = useState('');
   const { colors } = useTheme();
+  const palette = useFinancePalette();
   const targets = rows.filter(
     (row) =>
       !row.is_archived &&
@@ -604,37 +732,59 @@ function ArchiveForm({
       row.parent_id !== category.id,
   );
   return (
-    <Screen title={vi.archiveCategory}>
-      <Button contentStyle={styles.button} disabled={busy} onPress={onBack}>
-        {vi.back}
-      </Button>
-      <Text variant="titleLarge">{category.name}</Text>
-      <Text>{vi.categoryArchiveDescription}</Text>
-      <Text accessibilityRole="header" variant="titleMedium">
-        {vi.categoryReassign}
-      </Text>
-      <Text>{vi.categoryMoveHistory}</Text>
-      <RadioButton.Group value={replacement} onValueChange={setReplacement}>
-        <RadioButton.Item
-          value=""
-          label={vi.categoryKeepHistory}
-          disabled={busy}
-          style={{ minHeight: 48 }}
-        />
-        {targets.map((row) => (
+    <Screen title={vi.archiveCategory} onBack={onBack} backDisabled={busy}>
+      <View
+        style={[
+          styles.panel,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
+        <Text variant="titleLarge" style={{ fontWeight: '700' }}>
+          {category.name}
+        </Text>
+        <Text style={{ color: palette.textMuted, lineHeight: 20 }}>
+          {vi.categoryArchiveDescription}
+        </Text>
+      </View>
+
+      <View
+        style={[
+          styles.panel,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
+        <Text
+          accessibilityRole="header"
+          variant="titleSmall"
+          style={{ fontWeight: '700' }}
+        >
+          {vi.categoryReassign}
+        </Text>
+        <Text variant="bodySmall" style={{ color: palette.textMuted }}>
+          {vi.categoryMoveHistory}
+        </Text>
+        <RadioButton.Group value={replacement} onValueChange={setReplacement}>
           <RadioButton.Item
-            key={row.id}
-            value={row.id}
+            value=""
+            label={vi.categoryKeepHistory}
             disabled={busy}
             style={{ minHeight: 48 }}
-            label={
-              row.parent_id
-                ? `${rows.find((parent) => parent.id === row.parent_id)?.name} › ${row.name}`
-                : row.name
-            }
           />
-        ))}
-      </RadioButton.Group>
+          {targets.map((row) => (
+            <RadioButton.Item
+              key={row.id}
+              value={row.id}
+              disabled={busy}
+              style={{ minHeight: 48 }}
+              label={
+                row.parent_id
+                  ? `${rows.find((parent) => parent.id === row.parent_id)?.name} › ${row.name}`
+                  : row.name
+              }
+            />
+          ))}
+        </RadioButton.Group>
+      </View>
       {!!error && (
         <Text accessibilityRole="alert" style={{ color: colors.error }}>
           {error}
@@ -642,6 +792,7 @@ function ArchiveForm({
       )}
       <Button
         mode="contained"
+        icon="archive-arrow-down-outline"
         contentStyle={styles.button}
         disabled={busy}
         loading={busy}

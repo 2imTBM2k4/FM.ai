@@ -4,6 +4,7 @@ import {
 } from '@pfm/contracts';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { View } from 'react-native';
 import {
   Button,
   List,
@@ -13,6 +14,7 @@ import {
   useTheme,
 } from 'react-native-paper';
 import { Screen, styles } from '@/components/screen';
+import { useFinancePalette } from '@/constants/theme';
 import type { WalletRow } from '@/data/repository';
 import type { CategoryRow } from '@/data/categories';
 import { vi } from '@/messages/vi';
@@ -69,104 +71,125 @@ export function TransactionFilterForm({
   });
   const [error, setError] = useState('');
   const { colors } = useTheme();
+  const palette = useFinancePalette();
   const disabled = busy || isSubmitting;
   const fields = [
-    { name: 'text', label: vi.filterText },
-    { name: 'from', label: vi.filterFrom },
-    { name: 'to', label: vi.filterTo },
-    { name: 'minAmount', label: vi.filterMinAmount },
-    { name: 'maxAmount', label: vi.filterMaxAmount },
+    { name: 'text', label: vi.filterText, icon: 'magnify' },
+    { name: 'from', label: vi.filterFrom, icon: 'calendar-start' },
+    { name: 'to', label: vi.filterTo, icon: 'calendar-end' },
+    { name: 'minAmount', label: vi.filterMinAmount, icon: 'cash-minus' },
+    { name: 'maxAmount', label: vi.filterMaxAmount, icon: 'cash-plus' },
   ] as const;
   return (
-    <Screen title={vi.transactionFilters}>
-      <Button contentStyle={styles.button} disabled={disabled} onPress={onBack}>
-        {vi.back}
-      </Button>
-      <Text>{vi.filterTextHint}</Text>
-      {fields.map((item) => (
+    <Screen
+      title={vi.transactionFilters}
+      subtitle={vi.filterTextHint}
+      onBack={onBack}
+      backDisabled={disabled}
+    >
+      <View
+        style={[
+          styles.panel,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
+        {fields.map((item) => (
+          <Controller
+            key={item.name}
+            control={control}
+            name={item.name}
+            render={({ field }) => (
+              <TextInput
+                mode="outlined"
+                label={item.label}
+                accessibilityLabel={item.label}
+                value={field.value}
+                disabled={disabled}
+                onBlur={field.onBlur}
+                left={<TextInput.Icon icon={item.icon} />}
+                keyboardType={
+                  item.name.includes('Amount')
+                    ? 'number-pad'
+                    : item.name === 'text'
+                      ? 'default'
+                      : 'numbers-and-punctuation'
+                }
+                onChangeText={(value) =>
+                  field.onChange(
+                    item.name.includes('Amount')
+                      ? formatAmountInput(value, field.value)
+                      : value,
+                  )
+                }
+              />
+            )}
+          />
+        ))}
+      </View>
+
+      <View
+        style={[
+          styles.panel,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
         <Controller
-          key={item.name}
           control={control}
-          name={item.name}
+          name="kind"
           render={({ field }) => (
-            <TextInput
-              mode="outlined"
-              label={item.label}
-              accessibilityLabel={item.label}
+            <FilterChoice
+              label={vi.transactionKind}
               value={field.value}
               disabled={disabled}
-              onBlur={field.onBlur}
-              keyboardType={
-                item.name.includes('Amount')
-                  ? 'number-pad'
-                  : item.name === 'text'
-                    ? 'default'
-                    : 'numbers-and-punctuation'
-              }
-              onChangeText={(value) =>
-                field.onChange(
-                  item.name.includes('Amount')
-                    ? formatAmountInput(value, field.value)
-                    : value,
-                )
-              }
+              onChange={(value) => {
+                field.onChange(value);
+                setValue('categoryId', '');
+              }}
+              options={[
+                { value: 'expense', label: vi.transactionExpense },
+                { value: 'income', label: vi.transactionIncome },
+                { value: 'transfer', label: vi.transactionTransfer },
+              ]}
             />
           )}
         />
-      ))}
-      <Controller
-        control={control}
-        name="kind"
-        render={({ field }) => (
-          <FilterChoice
-            label={vi.transactionKind}
-            value={field.value}
-            disabled={disabled}
-            onChange={(value) => {
-              field.onChange(value);
-              setValue('categoryId', '');
-            }}
-            options={[
-              { value: 'expense', label: vi.transactionExpense },
-              { value: 'income', label: vi.transactionIncome },
-              { value: 'transfer', label: vi.transactionTransfer },
-            ]}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="walletId"
-        render={({ field }) => (
-          <FilterChoice
-            label={vi.transactionWallet}
-            value={field.value}
-            disabled={disabled}
-            onChange={field.onChange}
-            options={wallets.map((w) => ({
-              value: w.id,
-              label: `${w.name}${w.is_archived ? ` · ${vi.transactionArchivedReference}` : ''}`,
-            }))}
-          />
-        )}
-      />
-      <Text>{vi.filterCategoryHint}</Text>
-      <Controller
-        control={control}
-        name="categoryId"
-        render={({ field }) => (
-          <FilterChoice
-            label={vi.transactionCategory}
-            value={field.value}
-            disabled={disabled}
-            onChange={field.onChange}
-            options={categories.map((c) => ({
-              value: c.id,
-              label: `${c.parent_id ? `${categories.find((p) => p.id === c.parent_id)?.name ?? ''} › ` : ''}${c.name}${c.is_archived ? ` · ${vi.transactionArchivedReference}` : ''}`,
-            }))}
-          />
-        )}
-      />
+        <Controller
+          control={control}
+          name="walletId"
+          render={({ field }) => (
+            <FilterChoice
+              label={vi.transactionWallet}
+              value={field.value}
+              disabled={disabled}
+              onChange={field.onChange}
+              options={wallets.map((w) => ({
+                value: w.id,
+                label: `${w.name}${w.is_archived ? ` · ${vi.transactionArchivedReference}` : ''}`,
+              }))}
+            />
+          )}
+        />
+        <Text variant="bodySmall" style={{ color: palette.textMuted }}>
+          {vi.filterCategoryHint}
+        </Text>
+        <Controller
+          control={control}
+          name="categoryId"
+          render={({ field }) => (
+            <FilterChoice
+              label={vi.transactionCategory}
+              value={field.value}
+              disabled={disabled}
+              onChange={field.onChange}
+              options={categories.map((c) => ({
+                value: c.id,
+                label: `${c.parent_id ? `${categories.find((p) => p.id === c.parent_id)?.name ?? ''} › ` : ''}${c.name}${c.is_archived ? ` · ${vi.transactionArchivedReference}` : ''}`,
+              }))}
+            />
+          )}
+        />
+      </View>
+
       {!!error && (
         <Text accessibilityRole="alert" style={{ color: colors.error }}>
           {error}
@@ -175,6 +198,7 @@ export function TransactionFilterForm({
       <Button
         contentStyle={styles.button}
         mode="contained"
+        icon="check"
         disabled={disabled}
         onPress={() => {
           void handleSubmit((values) => {
@@ -205,6 +229,8 @@ export function TransactionFilterForm({
         {vi.filterApply}
       </Button>
       <Button
+        mode="outlined"
+        icon="filter-remove-outline"
         contentStyle={styles.button}
         disabled={disabled}
         onPress={() => onApply({})}
@@ -229,6 +255,7 @@ function FilterChoice({
   disabled: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const palette = useFinancePalette();
   return (
     <List.Accordion
       title={label}
@@ -240,6 +267,7 @@ function FilterChoice({
       onPress={() => {
         if (!disabled) setExpanded((current) => !current);
       }}
+      style={{ backgroundColor: palette.surfaceMuted, borderRadius: 12 }}
     >
       <RadioButton.Group
         value={value}

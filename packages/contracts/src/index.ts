@@ -9,6 +9,7 @@ export {
   DebtRepaymentSchema,
   RecurringInputSchema,
   TransactionInputSchema,
+  ParseLearningInputSchema,
   TransactionFiltersSchema,
   WalletInputSchema,
 } from './entities';
@@ -21,6 +22,7 @@ export type {
   DebtRepayment,
   RecurringInput,
   TransactionInput,
+  ParseLearningInput,
   TransactionFilters,
   WalletInput,
 } from './entities';
