@@ -24,6 +24,7 @@ import {
   StatusPill,
   styles,
 } from '@/components/screen';
+import { DateField } from '@/components/ui';
 import { useFinancePalette } from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import {
@@ -40,6 +41,7 @@ import {
   parseAmountInput,
 } from '@/features/transactions/form';
 import { vi } from '@/messages/vi';
+import { formatDisplayDate } from '@/utils/display';
 import { useApp } from '@/state/app';
 
 export function GoalManager({ onClose }: { onClose(): void }) {
@@ -299,7 +301,7 @@ export function GoalManager({ onClose }: { onClose(): void }) {
             <View style={styles.row}>
               {row.deadline_on && (
                 <Text variant="bodySmall" style={{ color: palette.textMuted }}>
-                  {vi.goalDeadline}: {row.deadline_on}
+                  {vi.goalDeadline}: {formatDisplayDate(row.deadline_on)}
                 </Text>
               )}
               {!progress.achieved && (
@@ -430,24 +432,36 @@ function GoalForm({
             key={item.name}
             control={control}
             name={item.name}
-            render={({ field }) => (
-              <TextInput
-                mode="outlined"
-                label={item.label}
-                value={field.value}
-                disabled={disabled}
-                onBlur={field.onBlur}
-                left={<TextInput.Icon icon={item.icon} />}
-                keyboardType={item.name === 'target' ? 'number-pad' : 'default'}
-                onChangeText={(value) =>
-                  field.onChange(
-                    item.name === 'target'
-                      ? formatAmountInput(value, field.value)
-                      : value,
-                  )
-                }
-              />
-            )}
+            render={({ field }) =>
+              item.name === 'deadline' ? (
+                <DateField
+                  label={item.label}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={disabled}
+                  allowClear
+                />
+              ) : (
+                <TextInput
+                  mode="outlined"
+                  label={item.label}
+                  value={field.value}
+                  disabled={disabled}
+                  onBlur={field.onBlur}
+                  left={<TextInput.Icon icon={item.icon} />}
+                  keyboardType={
+                    item.name === 'target' ? 'number-pad' : 'default'
+                  }
+                  onChangeText={(value) =>
+                    field.onChange(
+                      item.name === 'target'
+                        ? formatAmountInput(value, field.value)
+                        : value,
+                    )
+                  }
+                />
+              )
+            }
           />
         ))}
         <Text variant="bodySmall" style={{ color: palette.textMuted }}>

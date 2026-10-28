@@ -46,6 +46,20 @@ describe('Stats Summary & Category Allocation (Stage 5)', () => {
     expect(deficit.savingsRatePercent).toBe(0);
   });
 
+  it('keeps expense categories beyond six in the complete allocation total', () => {
+    const categories = Array.from({ length: 7 }, (_, index) => ({
+      id: `category-${index}`,
+      name: `Category ${index}`,
+      amount: 100,
+    }));
+    const allocation = computeCategoryAllocation(categories);
+    expect(allocation.totalExpense).toBe(700);
+    expect(allocation.items).toHaveLength(7);
+    expect(allocation.items.map((item) => item.percentage)).toEqual(
+      Array(7).fill(14),
+    );
+  });
+
   it('sorts category allocation descending by amount and preserves integer amounts', () => {
     const allocation = computeCategoryAllocation([
       { id: 'c1', name: 'Di chuyển', amount: 1_000_000 },
@@ -62,4 +76,3 @@ describe('Stats Summary & Category Allocation (Stage 5)', () => {
     expect(allocation.items.map((i) => i.percentage)).toEqual([50, 40, 10]);
   });
 });
-

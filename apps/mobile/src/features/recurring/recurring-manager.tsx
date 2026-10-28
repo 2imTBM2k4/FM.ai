@@ -23,6 +23,7 @@ import {
   StatusPill,
   styles,
 } from '@/components/screen';
+import { DateField } from '@/components/ui';
 import { useFinancePalette } from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import {
@@ -563,24 +564,36 @@ function RecurringForm({
             key={item.name}
             control={control}
             name={item.name}
-            render={({ field }) => (
-              <TextInput
-                mode="outlined"
-                label={item.label}
-                value={field.value}
-                onBlur={field.onBlur}
-                disabled={disabled}
-                left={<TextInput.Icon icon={item.icon} />}
-                keyboardType={item.name === 'amount' ? 'number-pad' : 'default'}
-                onChangeText={(value) =>
-                  field.onChange(
-                    item.name === 'amount'
-                      ? formatAmountInput(value, field.value)
-                      : value,
-                  )
-                }
-              />
-            )}
+            render={({ field }) =>
+              item.name === 'start' || item.name === 'end' ? (
+                <DateField
+                  label={item.label}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={disabled}
+                  allowClear={item.name === 'end'}
+                />
+              ) : (
+                <TextInput
+                  mode="outlined"
+                  label={item.label}
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  disabled={disabled}
+                  left={<TextInput.Icon icon={item.icon} />}
+                  keyboardType={
+                    item.name === 'amount' ? 'number-pad' : 'default'
+                  }
+                  onChangeText={(value) =>
+                    field.onChange(
+                      item.name === 'amount'
+                        ? formatAmountInput(value, field.value)
+                        : value,
+                    )
+                  }
+                />
+              )
+            }
           />
         ))}
         <Text variant="bodySmall" style={{ color: palette.textMuted }}>

@@ -5,7 +5,11 @@ import { StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Text } from 'react-native-paper';
 import { EmptyStateCard, IconBadge, Screen, styles } from '@/components/screen';
 import { GlassCard, Pill } from '@/components/ui';
-import { DesignSpacing, useDesignTheme, useFinancePalette } from '@/constants/theme';
+import {
+  DesignSpacing,
+  useDesignTheme,
+  useFinancePalette,
+} from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import { readDashboard } from '@/data/dashboard';
 import {
@@ -155,7 +159,7 @@ export function NotificationsView({ onClose }: { onClose(): void }) {
           <Button
             mode="contained"
             compact
-            buttonColor={theme.brand.primary}
+            buttonColor={theme.brand.primaryStrong}
             textColor="#FFFFFF"
             disabled={busy || permissionStatus === 'granted'}
             onPress={async () => {

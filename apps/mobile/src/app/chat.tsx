@@ -367,16 +367,13 @@ export default function Chat() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={localStyles.orbHeroWrap}>
-              <AIOrb size={168} />
+              <AIOrb size={96} />
             </View>
 
             <View style={localStyles.introTextGroup}>
               <Text
                 variant="headlineSmall"
-                style={[
-                  localStyles.introTitle,
-                  { color: theme.text.primary },
-                ]}
+                style={[localStyles.introTitle, { color: theme.text.primary }]}
               >
                 {vi.aiIntroTitle}
               </Text>
@@ -533,9 +530,9 @@ const localStyles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: DesignSpacing.md,
+    paddingVertical: DesignSpacing.sm,
     paddingHorizontal: DesignSpacing.xs,
-    gap: DesignSpacing.lg,
+    gap: DesignSpacing.md,
   },
   orbHeroWrap: {
     alignItems: 'center',

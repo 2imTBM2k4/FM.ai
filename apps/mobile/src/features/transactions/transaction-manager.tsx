@@ -27,6 +27,7 @@ import {
   Button,
   Divider,
   HelperText,
+  IconButton,
   List,
   RadioButton,
   SegmentedButtons,
@@ -42,7 +43,7 @@ import {
   StatusPill,
   styles,
 } from '@/components/screen';
-import { GlassCard, Pill } from '@/components/ui';
+import { DateField, GlassCard, Pill } from '@/components/ui';
 import {
   DesignRadius,
   DesignSpacing,
@@ -52,10 +53,7 @@ import {
 import { withDatabase } from '@/data/connection';
 import type { Database } from '@/data/migrate';
 import { listCategories, type CategoryRow } from '@/data/categories';
-import {
-  readQuickEntryContext,
-  saveParsedEntries,
-} from '@/data/quick-entry';
+import { readQuickEntryContext, saveParsedEntries } from '@/data/quick-entry';
 import { listWallets, type WalletRow } from '@/data/repository';
 import { foldSearchText } from '@/data/search-text';
 import {
@@ -75,6 +73,7 @@ import { EntryConfirmation } from '@/features/quick-entry/confirmation';
 import { useApp } from '@/state/app';
 import { usePreferences } from '@/state/preferences';
 import { vi } from '@/messages/vi';
+import { formatDisplayDate } from '@/utils/display';
 import {
   formatAmountInput,
   parseAmountInput,
@@ -287,6 +286,12 @@ export function TransactionManager({
     setNotice('');
   }, []);
 
+  const openAdd = useCallback(() => {
+    setMode({ type: 'form', row: null, id: uuid.v4() });
+    setError('');
+    setNotice('');
+  }, []);
+
   const remove = useCallback((row: TransactionRow) => {
     setMode({ type: 'delete', row });
     setError('');
@@ -359,9 +364,7 @@ export function TransactionManager({
           <View style={{ alignItems: 'center', gap: 10 }}>
             <Pill
               label={kindLabel}
-              tone={
-                isIncome ? 'income' : isExpense ? 'expense' : 'primary'
-              }
+              tone={isIncome ? 'income' : isExpense ? 'expense' : 'primary'}
               size="md"
             />
             <Text
@@ -382,7 +385,7 @@ export function TransactionManager({
               {formatVnd(detailRow.amount)}
             </Text>
             <Text variant="bodyMedium" style={{ color: theme.text.secondary }}>
-              {detailRow.occurred_on}
+              {formatDisplayDate(detailRow.occurred_on)}
             </Text>
           </View>
 
@@ -432,7 +435,7 @@ export function TransactionManager({
           <Button
             mode="contained"
             icon="pencil-outline"
-            buttonColor={theme.brand.primary}
+            buttonColor={theme.brand.primaryStrong}
             textColor="#FFFFFF"
             contentStyle={styles.button}
             style={{ flex: 1 }}
@@ -499,7 +502,8 @@ export function TransactionManager({
             />
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="titleMedium" style={{ fontWeight: '700' }}>
-                {formatVnd(mode.row.amount)} · {mode.row.occurred_on}
+                {formatVnd(mode.row.amount)} ·{' '}
+                {formatDisplayDate(mode.row.occurred_on)}
               </Text>
               {!!mode.row.note && (
                 <Text style={{ color: palette.textMuted }}>
@@ -544,7 +548,19 @@ export function TransactionManager({
     );
 
   return (
-    <Screen title={vi.transactions} scroll={false}>
+    <Screen
+      title={vi.transactions}
+      scroll={false}
+      headerRight={
+        <IconButton
+          icon="plus"
+          size={24}
+          accessibilityLabel={vi.addTransaction}
+          disabled={loading || busy || !wallets.some((w) => !w.is_archived)}
+          onPress={openAdd}
+        />
+      }
+    >
       {/* Instant Search Input Bar */}
       <View
         style={[
@@ -624,7 +640,7 @@ export function TransactionManager({
       <View style={localStyles.quickRow}>
         <QuickTile
           icon="tune-variant"
-          label={vi.transactionFilters}
+          label={vi.filterAdvanced}
           bg={hasFilters ? palette.warningSoft : palette.primarySoft}
           fg={hasFilters ? palette.warningInk : palette.primaryInk}
           disabled={busy || loading}
@@ -656,22 +672,6 @@ export function TransactionManager({
           fg={palette.warningInk}
         />
       )}
-
-      <Button
-        mode="contained"
-        icon="plus"
-        buttonColor={theme.brand.primary}
-        textColor="#FFFFFF"
-        contentStyle={styles.button}
-        disabled={loading || busy || !wallets.some((w) => !w.is_archived)}
-        onPress={() => {
-          setMode({ type: 'form', row: null, id: uuid.v4() });
-          setError('');
-          setNotice('');
-        }}
-      >
-        {vi.addTransaction}
-      </Button>
 
       {!loading && !wallets.some((w) => !w.is_archived) && (
         <Text style={{ color: palette.textMuted }}>{vi.noWallet}</Text>
@@ -768,7 +768,7 @@ export function TransactionManager({
           }}
           ListEmptyComponent={
             <EmptyStateCard
-              icon="swap-horizontal"
+              icon="receipt-text-outline"
               message={
                 hasFilters || quickQuery || quickKind !== 'all'
                   ? vi.filterEmpty
@@ -887,14 +887,12 @@ const TransactionItem = memo(function TransactionItem({
               </Text>
               <Pill
                 label={kindTitle}
-                tone={
-                  isIncome ? 'income' : isExpense ? 'expense' : 'primary'
-                }
+                tone={isIncome ? 'income' : isExpense ? 'expense' : 'primary'}
                 size="sm"
               />
             </View>
             <Text variant="bodySmall" style={{ color: theme.text.secondary }}>
-              {row.occurred_on} ·{' '}
+              {formatDisplayDate(row.occurred_on)} ·{' '}
               {wallets.find((w) => w.id === row.wallet_id)?.name}
               {row.to_wallet_id
                 ? ` → ${wallets.find((w) => w.id === row.to_wallet_id)?.name ?? ''}`
@@ -904,10 +902,14 @@ const TransactionItem = memo(function TransactionItem({
         </View>
         <Text
           variant="titleMedium"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
           style={[
             styles.number,
             {
               fontWeight: '800',
+              maxWidth: '44%',
               color: isIncome
                 ? theme.finance.incomeText
                 : isExpense
@@ -1455,24 +1457,14 @@ export function TransactionForm({
             },
           }}
           render={({ field, fieldState }) => (
-            <View>
-              <TextInput
-                mode="outlined"
-                label={vi.transactionDate}
-                accessibilityLabel={vi.transactionDate}
-                value={field.value}
-                onChangeText={field.onChange}
-                onBlur={field.onBlur}
-                disabled={disabled}
-                error={!!fieldState.error}
-                keyboardType="numbers-and-punctuation"
-                maxLength={10}
-                left={<TextInput.Icon icon="calendar-month-outline" />}
-              />
-              {!!fieldState.error && (
-                <HelperText type="error">{fieldState.error.message}</HelperText>
-              )}
-            </View>
+            <DateField
+              label={vi.transactionDate}
+              value={field.value}
+              onChange={field.onChange}
+              disabled={disabled}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message}
+            />
           )}
         />
         {future && (
@@ -1520,7 +1512,7 @@ export function TransactionForm({
       <Button
         mode="contained"
         icon="check"
-        buttonColor={theme.brand.primary}
+        buttonColor={theme.brand.primaryStrong}
         textColor="#FFFFFF"
         contentStyle={styles.button}
         disabled={disabled}

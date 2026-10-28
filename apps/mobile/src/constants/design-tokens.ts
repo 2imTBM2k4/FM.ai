@@ -33,6 +33,8 @@ export interface DesignColorScheme {
   };
   brand: {
     primary: string;
+    primaryStrong: string;
+    primaryText: string;
     primarySoft: string;
     primaryBorder: string;
     primaryGlow: string;
@@ -103,6 +105,8 @@ export const DesignColors: Record<ThemeMode, DesignColorScheme> = {
     },
     brand: {
       primary: '#7C5CFF',
+      primaryStrong: '#6D4AE8',
+      primaryText: '#5B3DE0',
       primarySoft: '#ECE6FF',
       primaryBorder: '#D5C7FF',
       primaryGlow: 'rgba(124, 92, 255, 0.32)',
@@ -129,10 +133,10 @@ export const DesignColors: Record<ThemeMode, DesignColorScheme> = {
     tabBar: {
       pillBackground: '#14141B',
       pillBorder: 'rgba(255, 255, 255, 0.12)',
-      activeTab: '#7C5CFF',
+      activeTab: '#6D4AE8',
       activeIcon: '#FFFFFF',
       inactiveIcon: '#9CA3AF',
-      addButton: '#7C5CFF',
+      addButton: '#6D4AE8',
       addButtonGlow: 'rgba(124, 92, 255, 0.42)',
     },
     text: {
@@ -171,6 +175,8 @@ export const DesignColors: Record<ThemeMode, DesignColorScheme> = {
     },
     brand: {
       primary: '#7C5CFF',
+      primaryStrong: '#6D4AE8',
+      primaryText: '#C4B5FD',
       primarySoft: 'rgba(124, 92, 255, 0.22)',
       primaryBorder: 'rgba(124, 92, 255, 0.42)',
       primaryGlow: 'rgba(124, 92, 255, 0.40)',
@@ -197,10 +203,10 @@ export const DesignColors: Record<ThemeMode, DesignColorScheme> = {
     tabBar: {
       pillBackground: '#0A0B12',
       pillBorder: 'rgba(255, 255, 255, 0.14)',
-      activeTab: '#7C5CFF',
+      activeTab: '#6D4AE8',
       activeIcon: '#FFFFFF',
       inactiveIcon: '#94A3B8',
-      addButton: '#7C5CFF',
+      addButton: '#6D4AE8',
       addButtonGlow: 'rgba(124, 92, 255, 0.48)',
     },
     text: {
@@ -276,4 +282,3 @@ export function createSoftShadow(
     elevation: elevation === 'sm' ? 3 : elevation === 'md' ? 6 : 10,
   };
 }
-

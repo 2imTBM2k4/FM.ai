@@ -4,13 +4,14 @@ import {
   Button,
   Divider,
   Icon,
+  SegmentedButtons,
   Switch,
   Text,
   TextInput,
 } from 'react-native-paper';
 import { DeleteDataControl } from '@/components/delete-data-control';
 import { IconBadge, Screen, styles } from '@/components/screen';
-import { GlassCard, Pill } from '@/components/ui';
+import { GlassCard } from '@/components/ui';
 import {
   DesignSpacing,
   useDesignTheme,
@@ -35,8 +36,8 @@ const SAMPLE_CSV = [
 ].join('\n');
 
 /**
- * Settings screen (Stage 6) providing Language, Currency, Theme Mode (Pastel Sunset / Midnight Aurora),
- * Dev Seed Data toggle, local CSV Export/Import, Category management, Notifications, and PIN security.
+ * Settings screen: display mode (Pastel Sunset / Midnight Aurora), fixed VND note,
+ * preview tools (seed data and CSV), category management, notifications and PIN security.
  */
 export default function Settings() {
   const [managingCategories, setManagingCategories] = useState(false);
@@ -51,12 +52,8 @@ export default function Settings() {
   const palette = useFinancePalette();
   const theme = useDesignTheme();
 
-  const language = usePreferences((state) => state.language);
-  const currency = usePreferences((state) => state.currency);
   const themeMode = usePreferences((state) => state.themeMode);
   const seedEnabled = usePreferences((state) => state.seedEnabled);
-  const setLanguage = usePreferences((state) => state.setLanguage);
-  const setCurrency = usePreferences((state) => state.setCurrency);
   const setThemeMode = usePreferences((state) => state.setThemeMode);
   const setSeedEnabled = usePreferences((state) => state.setSeedEnabled);
 
@@ -116,7 +113,7 @@ export default function Settings() {
 
   return (
     <Screen title={vi.settings}>
-      {/* 1. Preferences Card: Language, Currency, Theme Mode, Dev Seed Data */}
+      {/* 1. Display preferences */}
       <GlassCard
         variant="elevated"
         radius="xl"
@@ -127,7 +124,7 @@ export default function Settings() {
           <IconBadge
             icon="palette-swatch-outline"
             bg={theme.brand.primarySoft}
-            fg={theme.brand.primary}
+            fg={theme.brand.primaryText}
             size={40}
             iconSize={20}
           />
@@ -143,35 +140,7 @@ export default function Settings() {
 
         <Divider style={{ backgroundColor: theme.card.border }} />
 
-        {/* Language Selector */}
-        <View style={localStyles.settingRow}>
-          <Text
-            variant="titleSmall"
-            style={{ fontWeight: '700', color: theme.text.primary }}
-          >
-            {vi.settingsLanguageLabel}
-          </Text>
-          <View style={localStyles.pillGroup}>
-            <Pill
-              label={vi.settingsLanguageVi}
-              tone="primary"
-              selected={language === 'vi'}
-              size="sm"
-              onPress={() => void setLanguage('vi')}
-            />
-            <Pill
-              label={vi.settingsLanguageEn}
-              tone="primary"
-              selected={language === 'en'}
-              size="sm"
-              onPress={() => void setLanguage('en')}
-            />
-          </View>
-        </View>
-
-        <Divider style={{ backgroundColor: theme.card.border }} />
-
-        {/* Currency Selector */}
+        {/* Currency is fixed for this preview; hiding a non-working selector is clearer. */}
         <View style={localStyles.settingRow}>
           <Text
             variant="titleSmall"
@@ -179,27 +148,17 @@ export default function Settings() {
           >
             {vi.settingsCurrencyLabel}
           </Text>
-          <View style={localStyles.pillGroup}>
-            <Pill
-              label={vi.settingsCurrencyVnd}
-              tone="primary"
-              selected={currency === 'VND'}
-              size="sm"
-              onPress={() => void setCurrency('VND')}
-            />
-            <Pill
-              label={vi.settingsCurrencyUsd}
-              tone="primary"
-              selected={currency === 'USD'}
-              size="sm"
-              onPress={() => void setCurrency('USD')}
-            />
-          </View>
+          <Text variant="bodyMedium" style={{ color: theme.text.secondary }}>
+            {vi.settingsCurrencyVnd}
+          </Text>
         </View>
+        <Text variant="bodySmall" style={{ color: theme.text.muted }}>
+          {vi.settingsCurrencyHint}
+        </Text>
 
         <Divider style={{ backgroundColor: theme.card.border }} />
 
-        {/* Theme Selector (Light Pastel Sunset vs Dark Midnight Aurora) */}
+        {/* Theme selector uses a single control instead of two stacked pills. */}
         <View style={{ gap: 8 }}>
           <Text
             variant="titleSmall"
@@ -207,62 +166,79 @@ export default function Settings() {
           >
             {vi.settingsThemeLabel}
           </Text>
-          <View style={localStyles.pillGroup}>
-            <Pill
-              label={vi.settingsThemeLight}
-              icon="weather-sunset"
-              tone="primary"
-              selected={themeMode === 'light'}
-              size="sm"
-              onPress={() => void setThemeMode('light')}
-            />
-            <Pill
-              label={vi.settingsThemeDark}
-              icon="weather-night"
-              tone="primary"
-              selected={themeMode === 'dark'}
-              size="sm"
-              onPress={() => void setThemeMode('dark')}
-            />
-          </View>
+          <SegmentedButtons
+            value={themeMode}
+            onValueChange={(value) =>
+              void setThemeMode(value as 'light' | 'dark')
+            }
+            buttons={[
+              {
+                value: 'light',
+                label: vi.settingsThemeLightShort,
+                icon: 'weather-sunset',
+              },
+              {
+                value: 'dark',
+                label: vi.settingsThemeDarkShort,
+                icon: 'weather-night',
+              },
+            ]}
+          />
+          <Text variant="bodySmall" style={{ color: theme.text.muted }}>
+            Pastel Sunset / Midnight Aurora
+          </Text>
         </View>
+      </GlassCard>
 
-        <Divider style={{ backgroundColor: theme.card.border }} />
+      <View style={{ gap: 2 }}>
+        <Text
+          variant="titleSmall"
+          style={{ fontWeight: '700', color: theme.text.primary }}
+        >
+          {vi.settingsExperiments}
+        </Text>
+        <Text variant="bodySmall" style={{ color: theme.text.muted }}>
+          {vi.settingsExperimentsHint}
+        </Text>
+      </View>
 
-        {/* Dev Seed Data Toggle */}
-        <View style={{ gap: 6 }}>
-          <View style={styles.row}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text
-                variant="titleSmall"
-                style={{ fontWeight: '700', color: theme.text.primary }}
-              >
-                {vi.settingsSeedLabel}
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.text.secondary, lineHeight: 18 }}
-              >
-                {vi.settingsSeedDescription}
-              </Text>
-            </View>
-            <Switch
-              accessibilityLabel={vi.settingsSeedLabel}
-              value={seedEnabled}
-              disabled={seedBusy}
-              color={theme.brand.primary}
-              onValueChange={(value) => void handleToggleSeed(value)}
-            />
-          </View>
-          {!!seedNotice && (
+      <GlassCard
+        variant="elevated"
+        radius="xl"
+        padding={DesignSpacing.lg}
+        style={{ gap: 10 }}
+      >
+        <View style={styles.row}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text
+              variant="titleSmall"
+              style={{ fontWeight: '700', color: theme.text.primary }}
+            >
+              {vi.settingsSeedLabel}
+            </Text>
             <Text
               variant="bodySmall"
-              style={{ color: theme.finance.incomeText, fontWeight: '700' }}
+              style={{ color: theme.text.secondary, lineHeight: 18 }}
             >
-              {seedNotice}
+              {vi.settingsSeedDescription}
             </Text>
-          )}
+          </View>
+          <Switch
+            accessibilityLabel={vi.settingsSeedLabel}
+            value={seedEnabled}
+            disabled={seedBusy}
+            color={theme.brand.primary}
+            onValueChange={(value) => void handleToggleSeed(value)}
+          />
         </View>
+        {!!seedNotice && (
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.finance.incomeText, fontWeight: '700' }}
+          >
+            {seedNotice}
+          </Text>
+        )}
       </GlassCard>
 
       {/* 2. Local CSV Import / Export Card */}
@@ -301,7 +277,7 @@ export default function Settings() {
             mode="contained"
             compact
             icon="tray-arrow-up"
-            buttonColor={theme.brand.primary}
+            buttonColor={theme.brand.primaryStrong}
             textColor="#FFFFFF"
             disabled={csvBusy}
             loading={csvBusy}
@@ -529,11 +505,6 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pillGroup: {
-    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },

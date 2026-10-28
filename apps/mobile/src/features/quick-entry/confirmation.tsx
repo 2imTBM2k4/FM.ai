@@ -28,6 +28,7 @@ import {
 import { Screen, styles } from '@/components/screen';
 import { useFinancePalette } from '@/constants/theme';
 import { vi } from '@/messages/vi';
+import { formatDisplayDate } from '@/utils/display';
 import { formatAmountInput, isFutureDate } from '../transactions/form';
 import type { EntryDraft, EntryReferences } from './draft';
 
@@ -308,6 +309,25 @@ function CandidateFields({
   );
   const amountLabel = draft.amount || vi.quickNoAmount;
   const formDisabled = disabled || !draft.selected;
+  const walletName =
+    refs.wallets.find((wallet) => wallet.id === draft.walletId)?.name ?? '—';
+  const toWalletName =
+    refs.wallets.find((wallet) => wallet.id === draft.toWalletId)?.name ?? '—';
+  const categoryName = refs.categories.find(
+    (category) => category.id === draft.categoryId,
+  )?.name;
+  const debtName = refs.debts.find(
+    (debt) => debt.id === draft.debtId,
+  )?.counterparty_label;
+  const referenceLabel =
+    draft.kind === 'transfer'
+      ? `${walletName} → ${toWalletName}`
+      : draft.kind === 'debt_borrow' || draft.kind === 'debt_lend'
+        ? `${walletName} · ${draft.counterpartyLabel.trim() || vi.quickCounterpartyRequired}`
+        : draft.kind === 'debt_repay_paid' ||
+            draft.kind === 'debt_repay_received'
+          ? `${walletName} · ${debtName ?? vi.quickDebtRequired}`
+          : `${walletName} · ${categoryName ?? vi.transactionUncategorized}`;
   let future = false;
   try {
     future = isFutureDate(draft.date, new Date());
@@ -318,7 +338,12 @@ function CandidateFields({
     <View
       style={[
         styles.panel,
-        { backgroundColor: palette.surface, borderColor: palette.border },
+        {
+          backgroundColor: palette.surface,
+          borderColor: palette.border,
+          padding: 14,
+          gap: 8,
+        },
       ]}
     >
       <Controller
@@ -326,6 +351,7 @@ function CandidateFields({
         name={`${path}.selected`}
         render={({ field }) => (
           <Checkbox.Item
+            position="leading"
             label={`${index + 1}. ${vi.quickSelect}`}
             status={field.value ? 'checked' : 'unchecked'}
             onPress={() => field.onChange(!field.value)}
@@ -336,10 +362,15 @@ function CandidateFields({
       <Text variant="titleMedium" style={styles.number}>
         {amountLabel} ₫ · {entryKindLabel(draft.kind)}
       </Text>
-      <Text variant="bodySmall">{draft.date || vi.quickInvalidDate}</Text>
+      <Text variant="bodySmall" style={{ color: palette.textMuted }}>
+        {referenceLabel}
+      </Text>
+      <Text variant="bodySmall" style={{ color: palette.textMuted }}>
+        {formatDisplayDate(draft.date) || vi.quickInvalidDate}
+      </Text>
       <Button
         mode="outlined"
-        contentStyle={styles.button}
+        contentStyle={styles.compactButton}
         disabled={disabled}
         onPress={() => setExpanded(!expanded)}
       >

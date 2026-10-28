@@ -401,7 +401,7 @@ export function ChatComposer({
             >
               <Text
                 variant="labelSmall"
-                style={{ color: theme.brand.primary, fontWeight: '700' }}
+                style={{ color: theme.brand.primaryText, fontWeight: '700' }}
               >
                 {vi.chatChangeRoute}
               </Text>
@@ -432,7 +432,7 @@ export function ChatComposer({
           <MaterialCommunityIcons
             name={showQuickBar ? 'close' : 'plus'}
             size={20}
-            color={theme.brand.primary}
+            color={theme.brand.primaryText}
           />
         </Pressable>
 
@@ -455,34 +455,6 @@ export function ChatComposer({
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={vi.aiQuickImageSample}
-          disabled={busy}
-          onPress={() => fillQuickSample('hóa đơn siêu thị 250k')}
-          style={composerStyles.inlineToolButton}
-        >
-          <MaterialCommunityIcons
-            name="image-outline"
-            size={20}
-            color={theme.text.secondary}
-          />
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={vi.aiQuickVoiceSample}
-          disabled={busy}
-          onPress={() => fillQuickSample('ăn sáng 30k, cà phê 25k')}
-          style={composerStyles.inlineToolButton}
-        >
-          <MaterialCommunityIcons
-            name="microphone-outline"
-            size={20}
-            color={theme.text.secondary}
-          />
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
           accessibilityLabel={vi.send}
           disabled={!ready}
           onPress={handleSendPress}
@@ -490,7 +462,7 @@ export function ChatComposer({
             composerStyles.sendCircle,
             {
               backgroundColor: ready
-                ? theme.brand.primary
+                ? theme.brand.primaryStrong
                 : theme.brand.primarySoft,
               opacity: ready ? 1 : 0.6,
             },
@@ -499,14 +471,14 @@ export function ChatComposer({
           {busy || loading ? (
             <ActivityIndicator
               size={16}
-              color={ready ? '#FFFFFF' : theme.brand.primary}
+              color={ready ? '#FFFFFF' : theme.brand.primaryText}
               accessibilityLabel={vi.loading}
             />
           ) : (
             <MaterialCommunityIcons
               name="arrow-up"
               size={20}
-              color={ready ? '#FFFFFF' : theme.brand.primary}
+              color={ready ? '#FFFFFF' : theme.brand.primaryText}
             />
           )}
         </Pressable>
@@ -529,7 +501,7 @@ export function ChatComposer({
             <Button
               mode="contained"
               compact
-              buttonColor={theme.brand.primary}
+              buttonColor={theme.brand.primaryStrong}
               textColor="#FFFFFF"
               disabled={!ready}
               onPress={() => void sendAdvice()}

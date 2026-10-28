@@ -103,6 +103,9 @@ export function GlassCard({
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    overflow: 'hidden',
+    // Shadow and clipping cannot share a layer on iOS. Current card contents
+    // have their own padding/radii; keep overflow visible without adding a
+    // wrapper that would change callers' flex sizing or gap placement.
+    overflow: 'visible',
   },
 });

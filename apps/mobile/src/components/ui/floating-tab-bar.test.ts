@@ -21,6 +21,7 @@ vi.mock('@/data/connection', () => ({
 vi.mock('react-native', () => ({
   View: 'View',
   Pressable: 'Pressable',
+  Text: 'Text',
   StyleSheet: {
     create: <T extends Record<string, unknown>>(styles: T): T => styles,
   },
@@ -104,9 +105,8 @@ function collectElements(
       typeof (elementType as { type: unknown }).type === 'function'
     ) {
       const rendered = (
-        (elementType as { type: (props: Record<string, unknown>) => ReactNode })
-          .type
-      )(element.props);
+        elementType as { type: (props: Record<string, unknown>) => ReactNode }
+      ).type(element.props);
       visit(rendered);
       return;
     }
@@ -183,6 +183,16 @@ describe('FloatingTabBar & CustomBottomTabBar (Group 1 & Group 2)', () => {
     );
 
     expect(tabButtons).toHaveLength(5);
+    for (const button of tabButtons) {
+      const style = Object.assign(
+        {},
+        ...(button.props.style as (Record<string, unknown> | false)[]).filter(
+          Boolean,
+        ),
+      );
+      expect(style.width).toBeGreaterThanOrEqual(44);
+      expect(style.height).toBeGreaterThanOrEqual(44);
+    }
     expect(tabButtons.map((btn) => btn.props.accessibilityLabel)).toEqual([
       viMessages.overview,
       viMessages.statsTabTitle,

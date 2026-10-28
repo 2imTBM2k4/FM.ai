@@ -20,12 +20,7 @@ import {
 } from '@/constants/theme';
 
 export type PillTone =
-  | 'expense'
-  | 'income'
-  | 'savings'
-  | 'primary'
-  | 'neutral'
-  | 'glass';
+  'expense' | 'income' | 'savings' | 'primary' | 'neutral' | 'glass';
 
 export interface PillProps {
   label: string;
@@ -62,9 +57,9 @@ export function Pill({
   const colors = (() => {
     if (selected) {
       return {
-        bg: theme.brand.primary,
+        bg: theme.brand.primaryStrong,
         fg: theme.text.onPrimary,
-        border: theme.brand.primary,
+        border: theme.brand.primaryStrong,
       };
     }
     switch (tone) {
@@ -89,7 +84,7 @@ export function Pill({
       case 'primary':
         return {
           bg: theme.brand.primarySoft,
-          fg: theme.brand.primary,
+          fg: theme.brand.primaryText,
           border: theme.brand.primaryBorder,
         };
       case 'glass':
@@ -160,6 +155,7 @@ export function Pill({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
+        hitSlop={10}
         onPress={onPress}
         onPressIn={() => {
           scale.set(withSpring(0.95, { damping: 16, stiffness: 300 }));
@@ -197,4 +193,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
 });
-

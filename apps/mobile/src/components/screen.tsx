@@ -82,7 +82,10 @@ export function Screen({
               <Text
                 accessibilityRole="header"
                 variant="headlineSmall"
-                style={[styles.screenTitle, { color: designTheme.text.primary }]}
+                style={[
+                  styles.screenTitle,
+                  { color: designTheme.text.primary },
+                ]}
               >
                 {title}
               </Text>
@@ -95,7 +98,9 @@ export function Screen({
                 </Text>
               )}
             </View>
-            {headerRight}
+            {!!headerRight && (
+              <View style={styles.headerActions}>{headerRight}</View>
+            )}
           </View>
         </View>
       )}
@@ -104,10 +109,7 @@ export function Screen({
   );
   return (
     <View
-      style={[
-        styles.rootScreen,
-        { backgroundColor: designTheme.sky.upperMid },
-      ]}
+      style={[styles.rootScreen, { backgroundColor: designTheme.sky.upperMid }]}
     >
       <GradientBackground themeMode={designTheme.mode} />
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.fill}>
@@ -328,9 +330,15 @@ export const styles = StyleSheet.create({
   },
   headerTitleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  headerActions: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
   },
   screenTitle: {
     fontWeight: '700',
@@ -345,7 +353,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: DesignRadius.pill,
     borderWidth: 1,
-    minHeight: 38,
+    minHeight: 44,
   },
   panel: {
     padding: 20,
@@ -384,7 +392,7 @@ export const styles = StyleSheet.create({
     borderRadius: DesignRadius.pill,
   },
   compactButton: {
-    minHeight: 38,
+    minHeight: 44,
     justifyContent: 'center',
     borderRadius: DesignRadius.pill,
   },

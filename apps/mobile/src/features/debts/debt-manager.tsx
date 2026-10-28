@@ -31,6 +31,7 @@ import {
   StatusPill,
   styles,
 } from '@/components/screen';
+import { DateField } from '@/components/ui';
 import { useFinancePalette } from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import {
@@ -60,6 +61,7 @@ import {
   useRecurringStatus,
 } from '@/features/recurring/mobile';
 import { vi } from '@/messages/vi';
+import { formatDisplayDate } from '@/utils/display';
 import { useApp } from '@/state/app';
 import { DEBT_KIND_LABELS } from './labels';
 
@@ -375,7 +377,7 @@ export function DebtManager({ onClose }: { onClose(): void }) {
 
             {selected.due_on && (
               <Text variant="bodySmall" style={{ color: palette.textMuted }}>
-                {vi.debtDue}: {selected.due_on}
+                {vi.debtDue}: {formatDisplayDate(selected.due_on)}
               </Text>
             )}
             {!!selected.note && <Text>{selected.note}</Text>}
@@ -441,7 +443,7 @@ export function DebtManager({ onClose }: { onClose(): void }) {
                     variant="bodySmall"
                     style={{ color: palette.textMuted }}
                   >
-                    {row.occurred_on} ·{' '}
+                    {formatDisplayDate(row.occurred_on)} ·{' '}
                     {
                       wallets.find((wallet) => wallet.id === row.wallet_id)
                         ?.name
@@ -628,7 +630,9 @@ export function DebtManager({ onClose }: { onClose(): void }) {
                       {row.direction === 'borrowed'
                         ? vi.debtBorrowed
                         : vi.debtLent}
-                      {row.due_on ? ` · ${vi.debtDue}: ${row.due_on}` : ''}
+                      {row.due_on
+                        ? ` · ${vi.debtDue}: ${formatDisplayDate(row.due_on)}`
+                        : ''}
                     </Text>
                   </View>
                 </View>
@@ -851,24 +855,36 @@ function DebtForm({
             key={item.name}
             control={control}
             name={item.name}
-            render={({ field }) => (
-              <TextInput
-                mode="outlined"
-                label={item.label}
-                value={field.value}
-                disabled={disabled}
-                onBlur={field.onBlur}
-                left={<TextInput.Icon icon={item.icon} />}
-                keyboardType={item.name === 'amount' ? 'number-pad' : 'default'}
-                onChangeText={(value) =>
-                  field.onChange(
-                    item.name === 'amount'
-                      ? formatAmountInput(value, field.value)
-                      : value,
-                  )
-                }
-              />
-            )}
+            render={({ field }) =>
+              item.name === 'due' ? (
+                <DateField
+                  label={vi.debtDue}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={disabled}
+                  allowClear
+                />
+              ) : (
+                <TextInput
+                  mode="outlined"
+                  label={item.label}
+                  value={field.value}
+                  disabled={disabled}
+                  onBlur={field.onBlur}
+                  left={<TextInput.Icon icon={item.icon} />}
+                  keyboardType={
+                    item.name === 'amount' ? 'number-pad' : 'default'
+                  }
+                  onChangeText={(value) =>
+                    field.onChange(
+                      item.name === 'amount'
+                        ? formatAmountInput(value, field.value)
+                        : value,
+                    )
+                  }
+                />
+              )
+            }
           />
         ))}
       </View>

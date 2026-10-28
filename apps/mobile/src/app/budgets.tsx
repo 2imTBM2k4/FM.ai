@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BudgetManager } from '@/features/budgets/budget-manager';
 import { StatsView } from '@/features/stats/stats-view';
 
 export default function Budgets() {
-  const [activeTab, setActiveTab] = useState<'stats' | 'budgets'>('stats');
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const router = useRouter();
+  const activeTab = tab === 'budgets' ? 'budgets' : 'stats';
+
   return activeTab === 'stats' ? (
-    <StatsView onSwitchToBudgets={() => setActiveTab('budgets')} />
+    <StatsView onSwitchToBudgets={() => router.setParams({ tab: 'budgets' })} />
   ) : (
-    <BudgetManager onSwitchToStats={() => setActiveTab('stats')} />
+    <BudgetManager onSwitchToStats={() => router.setParams({ tab: 'stats' })} />
   );
 }

@@ -44,8 +44,8 @@ export const APP_TAB_ITEMS: readonly TabBarItem[] = [
   {
     key: 'settings',
     label: vi.settings,
-    icon: 'dots-horizontal-circle-outline',
-    activeIcon: 'dots-horizontal-circle',
+    icon: 'cog-outline',
+    activeIcon: 'cog',
   },
 ] as const;
 

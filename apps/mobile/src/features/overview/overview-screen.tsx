@@ -2,7 +2,6 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   addMonths,
-  formatCompactVnd,
   formatVnd,
   goalProgress,
   monthKey,
@@ -10,7 +9,13 @@ import {
 } from '@pfm/domain';
 import type { TransactionInput } from '@pfm/contracts';
 import { useCallback, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import {
+  AppState,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import {
   ActivityIndicator,
   Button,
@@ -20,7 +25,6 @@ import {
   Text,
   useTheme,
 } from 'react-native-paper';
-import { BarChart, PieChart } from 'react-native-gifted-charts';
 import {
   EmptyStateCard,
   IconBadge,
@@ -44,21 +48,11 @@ import { NotificationsView } from '@/features/notifications/notifications-view';
 import { vi } from '@/messages/vi';
 import { useApp } from '@/state/app';
 import { usePreferences } from '@/state/preferences';
+import { formatDisplayMonth } from '@/utils/display';
 import { formatRecentTransactionTime } from './transaction-time';
-
-const PALETTE = [
-  '#7C5CFF',
-  '#FF7AD9',
-  '#16A34A',
-  '#0EA5E9',
-  '#F59E0B',
-  '#EC4899',
-  '#64748B',
-];
 
 const localToday = () =>
   today({ now: () => new Date(), timeZone: 'Asia/Ho_Chi_Minh' });
-const monthLabel = (month: string) => `${month.slice(5)}/${month.slice(0, 4)}`;
 
 /**
  * Converts integer basis points into a localized percentage delta label.
@@ -146,10 +140,6 @@ export function OverviewScreen({
 
   const activeWallets =
     data?.wallets.filter((wallet) => !wallet.is_archived) ?? [];
-  const headlineBps =
-    data?.incomeChangeBps !== null && data?.incomeChangeBps !== undefined
-      ? data.incomeChangeBps
-      : (data?.expenseChangeBps ?? null);
 
   if (showNotifications) {
     return <NotificationsView onClose={() => setShowNotifications(false)} />;
@@ -258,7 +248,7 @@ export function OverviewScreen({
               { fontWeight: '800', color: designTheme.text.primary },
             ]}
           >
-            {monthLabel(month)}
+            {formatDisplayMonth(month)}
           </Text>
           <IconButton
             icon="chevron-right"
@@ -324,6 +314,9 @@ export function OverviewScreen({
                   {vi.overviewLiveBalance}
                 </Text>
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
                   style={[
                     styles.number,
                     localStyles.heroBalanceText,
@@ -358,22 +351,8 @@ export function OverviewScreen({
               </Pressable>
             </View>
 
-            {/* % vs Last Month Badge Row */}
-            <View style={[styles.inlineRow, { marginTop: 10, flexWrap: 'wrap' }]}>
-              <Pill
-                icon={
-                  headlineBps !== null && headlineBps < 0
-                    ? 'trending-down'
-                    : 'trending-up'
-                }
-                label={`${changeLabel(headlineBps)} · ${vi.overviewVersusPrevious}`}
-                tone={
-                  headlineBps !== null && headlineBps < 0
-                    ? 'expense'
-                    : 'income'
-                }
-                size="sm"
-              />
+            {/* Wallet shortcut + active wallets strip */}
+            <View style={[styles.inlineRow, { marginTop: 10 }]}>
               <Pill
                 icon="wallet-outline"
                 label={vi.manageWallets}
@@ -383,9 +362,12 @@ export function OverviewScreen({
               />
             </View>
 
-            {/* Active Wallets Strip */}
             {activeWallets.length > 0 && (
-              <View style={localStyles.walletsStrip}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={localStyles.walletsStrip}
+              >
                 {activeWallets.map((wallet) => {
                   const visual = walletKindVisual(wallet.kind, palette);
                   return (
@@ -421,10 +403,14 @@ export function OverviewScreen({
                         </Text>
                         <Text
                           variant="bodyMedium"
+                          numberOfLines={1}
                           style={[
                             styles.number,
                             {
-                              color: designTheme.text.primary,
+                              color:
+                                wallet.balance < 0
+                                  ? designTheme.finance.expense
+                                  : designTheme.text.primary,
                               fontWeight: '700',
                             },
                           ]}
@@ -435,13 +421,12 @@ export function OverviewScreen({
                     </Pressable>
                   );
                 })}
-              </View>
+              </ScrollView>
             )}
           </GlassCard>
 
-          {/* 3 Compact Summary Cards: Income / Expenses / Savings */}
-          <View style={localStyles.summaryCardsRow}>
-            {/* Income Card */}
+          {/* Income / expense cards use two columns so exact VND amounts fit on 375pt. */}
+          <View style={localStyles.summaryGrid}>
             <GlassCard
               radius="lg"
               padding={14}
@@ -471,6 +456,8 @@ export function OverviewScreen({
               <Text
                 variant="titleSmall"
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
                 style={[
                   styles.number,
                   {
@@ -484,7 +471,6 @@ export function OverviewScreen({
               </Text>
             </GlassCard>
 
-            {/* Expenses Card */}
             <GlassCard
               radius="lg"
               padding={14}
@@ -514,6 +500,8 @@ export function OverviewScreen({
               <Text
                 variant="titleSmall"
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
                 style={[
                   styles.number,
                   {
@@ -527,46 +515,48 @@ export function OverviewScreen({
               </Text>
             </GlassCard>
 
-            {/* Savings (Net) Card */}
+            {/* Net is a full-width, low-height row so it cannot squeeze the two values above. */}
             <GlassCard
               radius="lg"
               padding={14}
-              style={localStyles.summaryCardItem}
+              style={[localStyles.summaryCardItem, localStyles.summaryCardWide]}
             >
-              <View style={localStyles.summaryIconRow}>
-                <IconBadge
-                  icon="piggy-bank-outline"
-                  bg={designTheme.finance.savingsSoft}
-                  fg={designTheme.finance.savingsText}
-                  size={34}
-                  iconSize={18}
-                />
+              <View style={styles.row}>
+                <View style={styles.inlineRow}>
+                  <IconBadge
+                    icon="piggy-bank-outline"
+                    bg={designTheme.finance.savingsSoft}
+                    fg={designTheme.finance.savingsText}
+                    size={34}
+                    iconSize={18}
+                  />
+                  <Text
+                    variant="labelLarge"
+                    style={{ color: designTheme.text.secondary }}
+                  >
+                    {vi.overviewNet}
+                  </Text>
+                </View>
+                <Text
+                  variant="titleMedium"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={[
+                    styles.number,
+                    {
+                      color:
+                        data.current.net >= 0
+                          ? designTheme.brand.primaryText
+                          : designTheme.finance.expense,
+                      fontWeight: '800',
+                    },
+                  ]}
+                >
+                  {data.current.net > 0 ? '+' : ''}
+                  {formatVnd(data.current.net)}
+                </Text>
               </View>
-              <Text
-                variant="labelMedium"
-                numberOfLines={1}
-                style={{ color: designTheme.text.secondary, marginTop: 8 }}
-              >
-                {vi.overviewNet}
-              </Text>
-              <Text
-                variant="titleSmall"
-                numberOfLines={1}
-                style={[
-                  styles.number,
-                  {
-                    color:
-                      data.current.net >= 0
-                        ? designTheme.brand.primary
-                        : designTheme.finance.expense,
-                    fontWeight: '800',
-                    marginTop: 2,
-                  },
-                ]}
-              >
-                {data.current.net > 0 ? '+' : ''}
-                {formatVnd(data.current.net)}
-              </Text>
             </GlassCard>
           </View>
 
@@ -595,7 +585,7 @@ export function OverviewScreen({
                 </View>
                 <Text
                   variant="bodySmall"
-                  numberOfLines={2}
+                  numberOfLines={3}
                   style={{
                     color: designTheme.text.secondary,
                     lineHeight: 18,
@@ -641,7 +631,12 @@ export function OverviewScreen({
                 label={vi.overviewBudgets}
                 tone="glass"
                 size="sm"
-                onPress={() => router.navigate('/budgets')}
+                onPress={() =>
+                  router.navigate({
+                    pathname: '/budgets',
+                    params: { tab: 'budgets' },
+                  })
+                }
               />
             </View>
           </GlassCard>
@@ -738,9 +733,19 @@ export function OverviewScreen({
                             </View>
                           </View>
 
-                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                          <View
+                            style={{
+                              alignItems: 'flex-end',
+                              gap: 4,
+                              flexShrink: 1,
+                              maxWidth: '46%',
+                            }}
+                          >
                             <Text
                               variant="bodyLarge"
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.75}
                               style={[
                                 styles.number,
                                 {
@@ -749,7 +754,7 @@ export function OverviewScreen({
                                     ? designTheme.finance.income
                                     : isExpense
                                       ? designTheme.finance.expense
-                                      : designTheme.brand.primary,
+                                      : designTheme.brand.primaryText,
                                 },
                               ]}
                             >
@@ -766,6 +771,10 @@ export function OverviewScreen({
                                     : 'primary'
                               }
                               size="sm"
+                              style={{
+                                alignSelf: 'flex-end',
+                                maxWidth: '100%',
+                              }}
                             />
                           </View>
                         </View>
@@ -782,8 +791,48 @@ export function OverviewScreen({
             </View>
           </GlassCard>
 
-          <CategoryChart data={data} />
-          <HistoryChart data={data} />
+          {/* Analytics moved to the Statistics tab; keep one lightweight entry point here. */}
+          <GlassCard
+            variant="elevated"
+            radius="xl"
+            padding={18}
+            onPress={() => router.navigate('/budgets')}
+            accessibilityLabel={vi.overviewAnalysis}
+          >
+            <View style={styles.row}>
+              <View style={[styles.inlineRow, { flex: 1 }]}>
+                <IconBadge
+                  icon="chart-donut"
+                  bg={designTheme.brand.primarySoft}
+                  fg={designTheme.brand.primaryText}
+                  size={42}
+                  iconSize={22}
+                />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text
+                    variant="titleMedium"
+                    style={{
+                      fontWeight: '700',
+                      color: designTheme.text.primary,
+                    }}
+                  >
+                    {vi.overviewAnalysis}
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: designTheme.text.secondary }}
+                  >
+                    {vi.overviewAnalysisHint}
+                  </Text>
+                </View>
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color={designTheme.text.muted}
+              />
+            </View>
+          </GlassCard>
 
           {/* Monthly Budgets Summary Card */}
           <GlassCard radius="xl" padding={20}>
@@ -799,7 +848,12 @@ export function OverviewScreen({
                 label={vi.overviewOpenBudgets}
                 tone="primary"
                 size="sm"
-                onPress={() => router.navigate('/budgets')}
+                onPress={() =>
+                  router.navigate({
+                    pathname: '/budgets',
+                    params: { tab: 'budgets' },
+                  })
+                }
               />
             </View>
             <View style={{ marginTop: 12 }}>
@@ -895,7 +949,7 @@ export function OverviewScreen({
                 {vi.overviewCurrentGoals}
               </Text>
               <Pill
-                label={vi.goals}
+                label={vi.viewAll}
                 tone="primary"
                 size="sm"
                 onPress={onGoals}
@@ -999,264 +1053,6 @@ function transactionLabel(kind: TransactionInput['kind']) {
         : (DEBT_KIND_LABELS[kind] ?? vi.overviewDebtTransaction);
 }
 
-/**
- * Renders the monthly category breakdown donut chart inside a GlassCard.
- */
-function CategoryChart({ data }: { data: Dashboard }) {
-  const { colors } = useTheme();
-  const palette = useFinancePalette();
-  const [width, setWidth] = useState(0);
-  const groups = [
-    ...data.topCategories.map((row, index) => ({
-      label: row.name ?? vi.transactionUncategorized,
-      value: row.amount,
-      color: PALETTE[index],
-    })),
-    ...(data.otherCategoryAmount
-      ? [
-          {
-            label: vi.overviewOther,
-            value: data.otherCategoryAmount,
-            color: PALETTE[6],
-          },
-        ]
-      : []),
-  ];
-  const totalSpent = groups.reduce((acc, g) => acc + g.value, 0);
-  const uncategorized = data.categories.find((row) => row.id === null);
-  return (
-    <View
-      style={[
-        styles.panel,
-        { backgroundColor: palette.surface, borderColor: palette.border },
-      ]}
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width - 40)}
-    >
-      <View style={{ gap: 2 }}>
-        <Text
-          variant="titleMedium"
-          accessibilityRole="header"
-          style={{ fontWeight: '800' }}
-        >
-          {vi.overviewCategories}
-        </Text>
-        <Text variant="bodySmall" style={{ color: palette.textMuted }}>
-          {vi.overviewParentCategories}
-        </Text>
-      </View>
-      {!groups.length ? (
-        <EmptyStateCard icon="chart-donut" message={vi.overviewNoExpenses} />
-      ) : (
-        <>
-          {width > 0 && (
-            <View
-              style={{ alignItems: 'center', paddingVertical: 8 }}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            >
-              <PieChart
-                data={groups}
-                donut
-                radius={Math.min(108, width / 2.2)}
-                innerRadius={Math.min(70, width / 3.3)}
-                innerCircleColor={colors.surface}
-                backgroundColor="transparent"
-                centerLabelComponent={() => (
-                  <View style={{ alignItems: 'center', paddingHorizontal: 6 }}>
-                    <Text
-                      variant="labelSmall"
-                      style={{ color: palette.textMuted }}
-                    >
-                      {vi.transactionExpense}
-                    </Text>
-                    <Text
-                      variant="titleSmall"
-                      style={[styles.number, { fontWeight: '800' }]}
-                    >
-                      {formatCompactVnd(totalSpent)}
-                    </Text>
-                  </View>
-                )}
-              />
-            </View>
-          )}
-          <View style={{ gap: 10 }}>
-            {groups.map((group, index) => {
-              const share =
-                totalSpent > 0
-                  ? Math.round((group.value / totalSpent) * 100)
-                  : 0;
-              return (
-                <View key={index} style={{ gap: 4 }}>
-                  <View style={styles.row}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                        flexShrink: 1,
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 5,
-                          backgroundColor: group.color,
-                        }}
-                      />
-                      <Text
-                        variant="bodyMedium"
-                        style={{ flexShrink: 1, fontWeight: '600' }}
-                      >
-                        {group.label}
-                      </Text>
-                      <Text
-                        variant="labelSmall"
-                        style={[styles.number, { color: palette.textMuted }]}
-                      >
-                        ({share}%)
-                      </Text>
-                    </View>
-                    <Text
-                      variant="bodyMedium"
-                      style={[styles.number, { fontWeight: '700' }]}
-                    >
-                      {formatVnd(group.value)}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-          {uncategorized &&
-            !data.topCategories.some((row) => row.id === null) && (
-              <Text variant="bodySmall" style={{ color: palette.textMuted }}>
-                {vi.overviewUncategorizedInOther}:{' '}
-                {formatVnd(uncategorized.amount)}
-              </Text>
-            )}
-        </>
-      )}
-    </View>
-  );
-}
-
-/**
- * Renders the 6-month income vs expense comparison bar chart inside a GlassCard.
- */
-function HistoryChart({ data }: { data: Dashboard }) {
-  const { colors } = useTheme();
-  const palette = useFinancePalette();
-  const [width, setWidth] = useState(0);
-  const hasData = data.months.some((month) => month.income || month.expense);
-  const incomeColor = '#16A34A';
-  const expenseColor = '#7C5CFF';
-  const bars = data.months.flatMap((month) => [
-    {
-      value: month.income,
-      label: month.month.slice(5),
-      frontColor: incomeColor,
-      spacing: 4,
-      roundedTop: true,
-    },
-    {
-      value: month.expense,
-      frontColor: expenseColor,
-      spacing: 20,
-      roundedTop: true,
-    },
-  ]);
-  return (
-    <View
-      style={[
-        styles.panel,
-        { backgroundColor: palette.surface, borderColor: palette.border },
-      ]}
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width - 40)}
-    >
-      <View style={{ gap: 2 }}>
-        <Text
-          variant="titleMedium"
-          accessibilityRole="header"
-          style={{ fontWeight: '800' }}
-        >
-          {vi.overviewHistory}
-        </Text>
-        <Text variant="bodySmall" style={{ color: palette.textMuted }}>
-          {vi.overviewChartLegend}
-        </Text>
-      </View>
-      {!hasData ? (
-        <EmptyStateCard icon="chart-bar" message={vi.overviewNoHistory} />
-      ) : (
-        <>
-          {width > 48 && (
-            <View
-              style={{ overflow: 'hidden', paddingTop: 4 }}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            >
-              <BarChart
-                data={bars}
-                width={width - 48}
-                height={170}
-                barWidth={12}
-                initialSpacing={8}
-                endSpacing={8}
-                yAxisLabelWidth={48}
-                noOfSections={4}
-                maxValue={Math.max(1, ...bars.map((bar) => bar.value))}
-                yAxisColor={colors.outlineVariant}
-                xAxisColor={colors.outlineVariant}
-                rulesColor={colors.outlineVariant}
-                xAxisLabelTextStyle={{ color: colors.onSurface, fontSize: 11 }}
-                yAxisTextStyle={{ color: colors.onSurface, fontSize: 11 }}
-                formatYLabel={(value: string) =>
-                  formatCompactVnd(Math.round(Number(value)))
-                }
-                showScrollIndicator
-              />
-            </View>
-          )}
-          <Divider style={{ backgroundColor: palette.borderSubtle }} />
-          <View style={{ gap: 8 }}>
-            {data.months.map((month) => (
-              <View key={month.month} style={styles.row}>
-                <Text
-                  variant="labelLarge"
-                  style={[styles.number, { fontWeight: '700' }]}
-                >
-                  {monthLabel(month.month)}
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={[styles.number, { color: palette.textMuted }]}
-                >
-                  {vi.transactionIncome}:{' '}
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: palette.income, fontWeight: '700' }}
-                  >
-                    {formatVnd(month.income)}
-                  </Text>{' '}
-                  · {vi.transactionExpense}:{' '}
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: palette.text, fontWeight: '700' }}
-                  >
-                    {formatVnd(month.expense)}
-                  </Text>
-                </Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
-    </View>
-  );
-}
-
 const localStyles = StyleSheet.create({
   topHeader: {
     flexDirection: 'row',
@@ -1327,9 +1123,9 @@ const localStyles = StyleSheet.create({
   },
   walletsStrip: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
-    marginTop: 16,
+    paddingTop: 16,
+    paddingRight: 4,
   },
   walletMiniCard: {
     flexDirection: 'row',
@@ -1339,17 +1135,22 @@ const localStyles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: DesignRadius.md,
     borderWidth: 1,
-    minWidth: 145,
-    flex: 1,
+    width: 170,
+    flexShrink: 0,
   },
-  summaryCardsRow: {
+  summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
   summaryCardItem: {
-    flex: 1,
-    minWidth: 102,
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+  },
+  summaryCardWide: {
+    flexGrow: 0,
+    flexBasis: '100%',
   },
   summaryIconRow: {
     flexDirection: 'row',

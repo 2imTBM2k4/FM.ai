@@ -1,22 +1,33 @@
 import { useFocusEffect } from 'expo-router';
-import { addMonths, formatCompactVnd, monthKey, today } from '@pfm/domain';
+import { addMonths, monthKey, today } from '@pfm/domain';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { BarChart, PieChart } from 'react-native-gifted-charts';
+import { PieChart } from 'react-native-gifted-charts';
 import {
   ActivityIndicator,
   Button,
   IconButton,
   ProgressBar,
+  SegmentedButtons,
   Text,
 } from 'react-native-paper';
 import { Screen, styles } from '@/components/screen';
 import { GlassCard, Pill } from '@/components/ui';
-import { DesignSpacing, useDesignTheme, useFinancePalette } from '@/constants/theme';
+import { GroupedBarChart } from '@/components/ui/grouped-bar-chart';
+import {
+  DesignSpacing,
+  useDesignTheme,
+  useFinancePalette,
+} from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import { readDashboard, type Dashboard } from '@/data/dashboard';
 import { vi } from '@/messages/vi';
-import { formatCurrencyAmount, usePreferences } from '@/state/preferences';
+import { formatCurrencyAmount } from '@/state/preferences';
+import {
+  formatCompactVndShort,
+  formatDisplayMonth,
+  formatDisplayMonthShort,
+} from '@/utils/display';
 import {
   aggregatePeriodSummary,
   computeCategoryAllocation,
@@ -26,8 +37,6 @@ export type StatsRange = 1 | 3 | 6;
 
 const localToday = () =>
   today({ now: () => new Date(), timeZone: 'Asia/Ho_Chi_Minh' });
-const shortMonthLabel = (m: string) => `T${Number(m.slice(5))}`;
-const fullMonthLabel = (m: string) => `${m.slice(5)}/${m.slice(0, 4)}`;
 
 /**
  * Stage 5: Statistics & Analytics screen with time range selector (1M / 3M / 6M),
@@ -48,7 +57,13 @@ export function StatsView({
 
   const theme = useDesignTheme();
   const palette = useFinancePalette();
-  const currency = usePreferences((state) => state.currency);
+  // The preview stores and displays whole VND only; the hidden legacy USD
+  // preference must not make this tab disagree with every other screen.
+  const currency = 'VND' as const;
+  const compactAmount = useCallback(
+    (value: number) => formatCompactVndShort(value),
+    [],
+  );
 
   const load = useCallback(async () => {
     const currentId = ++request.current;
@@ -93,50 +108,32 @@ export function StatsView({
   const categoryAllocation = useMemo(
     () =>
       computeCategoryAllocation(
-        dashboard?.topCategories ?? [],
+        dashboard?.categories ?? [],
         vi.transactionUncategorized,
       ),
-    [dashboard?.topCategories],
+    [dashboard?.categories],
   );
 
-  const barData = useMemo(() => {
-    return visibleSeries.flatMap((point) => [
-      {
-        value: Math.round(point.income / 1000),
-        label: shortMonthLabel(point.month),
-        spacing: 6,
-        labelWidth: 34,
-        frontColor: theme.finance.income,
-      },
-      {
-        value: Math.round(point.expense / 1000),
-        frontColor: theme.finance.expense,
-      },
-    ]);
-  }, [visibleSeries, theme.finance.income, theme.finance.expense]);
-
   return (
-    <Screen
-      title={vi.statsTabTitle}
-      headerRight={
-        <View style={localStyles.modeSwitchRow}>
-          <Pill
-            label={vi.statsTabTitle}
-            icon="chart-box-outline"
-            tone="primary"
-            selected
-            size="sm"
-          />
-          <Pill
-            label={vi.budgetsTabTitle}
-            icon="bullseye-arrow"
-            tone="glass"
-            size="sm"
-            onPress={onSwitchToBudgets}
-          />
-        </View>
-      }
-    >
+    <Screen title={vi.statsTabTitle}>
+      <SegmentedButtons
+        value="stats"
+        onValueChange={(value) => {
+          if (value === 'budgets') onSwitchToBudgets();
+        }}
+        buttons={[
+          {
+            value: 'stats',
+            label: vi.statsTabTitle,
+            icon: 'chart-box-outline',
+          },
+          {
+            value: 'budgets',
+            label: vi.budgetsTabTitle,
+            icon: 'bullseye-arrow',
+          },
+        ]}
+      />
       {/* Time Range Selector + Anchor Month Navigator */}
       <GlassCard
         variant="elevated"
@@ -163,7 +160,7 @@ export function StatsView({
                 { fontWeight: '800', color: theme.text.primary },
               ]}
             >
-              {fullMonthLabel(anchorMonth)}
+              {formatDisplayMonth(anchorMonth)}
             </Text>
             <IconButton
               icon="chevron-right"
@@ -233,9 +230,7 @@ export function StatsView({
                   { fontWeight: '800', color: theme.finance.incomeText },
                 ]}
               >
-                {formatCurrencyAmount(periodSummary.totalIncome, currency, {
-                  compact: true,
-                })}
+                {compactAmount(periodSummary.totalIncome)}
               </Text>
             </GlassCard>
 
@@ -255,9 +250,7 @@ export function StatsView({
                   { fontWeight: '800', color: theme.finance.expenseText },
                 ]}
               >
-                {formatCurrencyAmount(periodSummary.totalExpense, currency, {
-                  compact: true,
-                })}
+                {compactAmount(periodSummary.totalExpense)}
               </Text>
             </GlassCard>
 
@@ -281,10 +274,14 @@ export function StatsView({
                   { fontWeight: '800', color: theme.text.primary },
                 ]}
               >
-                {formatCurrencyAmount(periodSummary.netSavings, currency, {
-                  compact: true,
-                  showPlus: true,
-                })}
+                {periodSummary.netSavings > 0 ? '+' : ''}
+                {compactAmount(periodSummary.netSavings)}
+              </Text>
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.text.secondary }}
+              >
+                {vi.statsNetLabel}
               </Text>
             </GlassCard>
           </View>
@@ -296,66 +293,25 @@ export function StatsView({
             padding={DesignSpacing.lg}
             style={{ gap: 14 }}
           >
-            <View style={styles.row}>
-              <Text
-                variant="titleMedium"
-                style={{ fontWeight: '800', color: theme.text.primary }}
-              >
-                {vi.statsIncomeVsExpense}
-              </Text>
-              <View style={localStyles.legendRow}>
-                <View style={localStyles.legendItem}>
-                  <View
-                    style={[
-                      localStyles.legendDot,
-                      { backgroundColor: theme.finance.income },
-                    ]}
-                  />
-                  <Text
-                    variant="labelSmall"
-                    style={{ color: theme.text.secondary }}
-                  >
-                    {vi.transactionIncome}
-                  </Text>
-                </View>
-                <View style={localStyles.legendItem}>
-                  <View
-                    style={[
-                      localStyles.legendDot,
-                      { backgroundColor: theme.finance.expense },
-                    ]}
-                  />
-                  <Text
-                    variant="labelSmall"
-                    style={{ color: theme.text.secondary }}
-                  >
-                    {vi.transactionExpense}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ alignItems: 'center', paddingTop: 6 }}>
-              <BarChart
-                data={barData}
-                barWidth={rangeMonths === 1 ? 28 : rangeMonths === 3 ? 18 : 12}
-                spacing={rangeMonths === 1 ? 36 : rangeMonths === 3 ? 22 : 16}
-                roundedTop
-                noOfSections={4}
-                height={168}
-                yAxisThickness={0}
-                xAxisThickness={1}
-                xAxisColor={theme.card.border}
-                yAxisTextStyle={{ color: theme.text.muted, fontSize: 10 }}
-                xAxisLabelTextStyle={{
-                  color: theme.text.secondary,
-                  fontSize: 11,
-                  fontWeight: '600',
-                }}
-                formatYLabel={(label) => `${label}k`}
-                isAnimated
-              />
-            </View>
+            <Text
+              variant="titleMedium"
+              style={{ fontWeight: '800', color: theme.text.primary }}
+            >
+              {vi.statsIncomeVsExpense}
+            </Text>
+            <GroupedBarChart
+              data={visibleSeries.map((point) => ({
+                label: formatDisplayMonthShort(point.month),
+                income: point.income,
+                expense: point.expense,
+              }))}
+              height={180}
+              incomeColor={theme.finance.income}
+              expenseColor={theme.finance.expense}
+              incomeLabel={vi.transactionIncome}
+              expenseLabel={vi.transactionExpense}
+              formatValue={compactAmount}
+            />
           </GlassCard>
 
           {/* Category Allocation Donut Chart + Breakdown List */}
@@ -373,7 +329,7 @@ export function StatsView({
                 {vi.statsCategoryAllocation}
               </Text>
               <Pill
-                label={fullMonthLabel(anchorMonth)}
+                label={formatDisplayMonth(anchorMonth)}
                 tone="glass"
                 size="sm"
               />
@@ -413,7 +369,9 @@ export function StatsView({
                             { fontWeight: '800', color: theme.text.primary },
                           ]}
                         >
-                          {formatCompactVnd(categoryAllocation.totalExpense)}
+                          {formatCompactVndShort(
+                            categoryAllocation.totalExpense,
+                          )}
                         </Text>
                       </View>
                     )}
@@ -525,4 +483,3 @@ const localStyles = StyleSheet.create({
     flex: 1,
   },
 });
-

@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { memo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -58,6 +58,7 @@ export function TabIconButton({
         accessibilityRole="tab"
         accessibilityState={{ selected: active }}
         accessibilityLabel={item.label}
+        hitSlop={4}
         onPress={onPress}
         onPressIn={() => {
           scale.set(withSpring(0.9, { damping: 15, stiffness: 320 }));
@@ -67,6 +68,7 @@ export function TabIconButton({
         }}
         style={[
           styles.tabCircle,
+          active && styles.tabCircleActive,
           active && {
             backgroundColor: theme.tabBar.activeTab,
           },
@@ -74,11 +76,17 @@ export function TabIconButton({
       >
         <MaterialCommunityIcons
           name={iconName as never}
-          size={22}
-          color={
-            active ? theme.tabBar.activeIcon : theme.tabBar.inactiveIcon
-          }
+          size={active ? 19 : 22}
+          color={active ? theme.tabBar.activeIcon : theme.tabBar.inactiveIcon}
         />
+        {active && (
+          <Text
+            numberOfLines={1}
+            style={[styles.activeLabel, { color: theme.tabBar.activeIcon }]}
+          >
+            {item.label}
+          </Text>
+        )}
       </Pressable>
     </Animated.View>
   );
@@ -183,28 +191,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: DesignSpacing.sm,
+    gap: 4,
   },
   pillBar: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: DesignRadius.pill,
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    gap: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    gap: 2,
   },
   tabCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  tabCircleActive: {
+    width: 62,
+    gap: 1,
+  },
+  activeLabel: {
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '700',
+  },
   addButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
   },

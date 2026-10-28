@@ -11,9 +11,10 @@ import {
   vec,
 } from '@shopify/react-native-skia';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import { memo, useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useDerivedValue,
@@ -192,6 +193,10 @@ const AnimatedSkiaOrb = memo(function AnimatedSkiaOrb({
         true,
       ),
     );
+    return () => {
+      cancelAnimation(time);
+      cancelAnimation(breath);
+    };
   }, [breath, time]);
 
   const containerAnimatedStyle = useAnimatedStyle(() => {
@@ -275,18 +280,50 @@ const AnimatedSkiaOrb = memo(function AnimatedSkiaOrb({
 });
 
 /**
- * Shared AI Orb component:
- * - When `animated={true}` (default: Home card, AI Intro hero, and active AI typing indicator),
- *   renders the Skia RuntimeShader holographic sphere with UI-thread breathing animation.
- * - When `animated={false}` (small avatars inside Chat FlatList), renders `StaticOrbAvatar`
- *   without allocating Skia Canvas or running infinite animations.
+ * Start static until the OS preference is known; keep listening while mounted so
+ * enabling Reduce Motion immediately unmounts the Skia animation and its loops.
+ * A late initial read must not overwrite a more recent accessibility event.
+ */
+function useOrbReducedMotion() {
+  const [reducedMotion, setReducedMotion] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    let preferenceChanged = false;
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      (enabled) => {
+        preferenceChanged = true;
+        if (active) setReducedMotion(enabled);
+      },
+    );
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (active && !preferenceChanged) setReducedMotion(enabled);
+      })
+      .catch(() => {
+        // Keep the non-animated fallback if the OS preference cannot be read.
+      });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return reducedMotion;
+}
+
+/**
+ * Shared AI Orb component. Reduced motion (including an unresolved preference)
+ * and `animated={false}` use the static avatar without Skia or animation loops.
  */
 export const AIOrb = memo(function AIOrb({
   size = 120,
   animated = true,
   accessibilityLabel = vi.aiOrbLabel,
 }: AIOrbProps) {
-  if (!animated) {
+  const reducedMotion = useOrbReducedMotion();
+  if (!animated || reducedMotion) {
     return (
       <StaticOrbAvatar size={size} accessibilityLabel={accessibilityLabel} />
     );

@@ -19,6 +19,7 @@ import {
   List,
   ProgressBar,
   RadioButton,
+  SegmentedButtons,
   Text,
   TextInput,
   useTheme,
@@ -30,7 +31,6 @@ import {
   StatusPill,
   styles,
 } from '@/components/screen';
-import { Pill } from '@/components/ui/pill';
 import { DesignSpacing, useFinancePalette } from '@/constants/theme';
 import { withDatabase } from '@/data/connection';
 import type { Database } from '@/data/migrate';
@@ -43,6 +43,7 @@ import {
 } from '@/data/budgets';
 import { listCategories, type CategoryRow } from '@/data/categories';
 import { vi } from '@/messages/vi';
+import { formatDisplayMonth } from '@/utils/display';
 import {
   formatAmountInput,
   parseAmountInput,
@@ -194,30 +195,27 @@ export function BudgetManager({
       />
     );
   return (
-    <Screen
-      title={vi.budgets}
-      scroll={false}
-      headerRight={
-        onSwitchToStats ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Pill
-              label={vi.statsTabTitle}
-              icon="chart-box-outline"
-              tone="glass"
-              size="sm"
-              onPress={onSwitchToStats}
-            />
-            <Pill
-              label={vi.budgetsTabTitle}
-              icon="bullseye-arrow"
-              tone="primary"
-              selected
-              size="sm"
-            />
-          </View>
-        ) : undefined
-      }
-    >
+    <Screen title={vi.budgets} scroll={false}>
+      {!!onSwitchToStats && (
+        <SegmentedButtons
+          value="budgets"
+          onValueChange={(value) => {
+            if (value === 'stats') onSwitchToStats();
+          }}
+          buttons={[
+            {
+              value: 'stats',
+              label: vi.statsTabTitle,
+              icon: 'chart-box-outline',
+            },
+            {
+              value: 'budgets',
+              label: vi.budgetsTabTitle,
+              icon: 'bullseye-arrow',
+            },
+          ]}
+        />
+      )}
       <View
         style={[
           localStyles.monthBar,
@@ -236,7 +234,7 @@ export function BudgetManager({
           variant="titleMedium"
           style={[styles.number, { fontWeight: '700' }]}
         >
-          {month}
+          {formatDisplayMonth(month)}
         </Text>
         <IconButton
           icon="chevron-right"
@@ -376,8 +374,8 @@ const BudgetItem = memo(function BudgetItem({
                 : ''}
             </Text>
             <Text variant="bodySmall" style={{ color: palette.textMuted }}>
-              {row.start_month}
-              {row.end_month ? ` → ${row.end_month}` : ''}
+              {formatDisplayMonth(row.start_month)}
+              {row.end_month ? ` → ${formatDisplayMonth(row.end_month)}` : ''}
             </Text>
           </View>
         </View>
@@ -427,6 +425,17 @@ const BudgetItem = memo(function BudgetItem({
               {vi.budgetLimit}: {formatVnd(row.amount)}
             </Text>
           </View>
+          {row.spent > row.amount && (
+            <Text
+              variant="bodySmall"
+              style={[styles.number, { color: palette.dangerInk }]}
+            >
+              {vi.budgetOver.replace(
+                '{amount}',
+                formatVnd(row.spent - row.amount),
+              )}
+            </Text>
+          )}
           <ProgressBar
             progress={Math.min(1, row.spent / row.amount)}
             color={
